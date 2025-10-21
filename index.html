@@ -1,262 +1,173 @@
 <!doctype html>
 <html lang="uk">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Status Panel (Telegram WebApp)</title>
-
-  <!-- Telegram SDK (може бути відсутній, якщо відкриєш НЕ в Telegram; UI все одно працюватиме) -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <style>
-    :root { --border:#e5e7eb; --muted:#6b7280; --ok:#22c55e; --bad:#ef4444; --bg:#ffffff; --bg-soft:#f9fafb; --shadow:0 6px 18px rgba(0,0,0,.06); }
-    * { box-sizing: border-box; }
-    html, body { margin:0; background:var(--bg); color:#111827; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-    .wrap { padding:16px; max-width:920px; margin:0 auto; }
-    .top { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px; }
-    .banner { padding:8px 12px; border:1px solid var(--border); border-radius:10px; background:var(--bg-soft); }
-    .global { padding:8px 12px; border-radius:10px; font-weight:700; border:1px solid var(--border); }
-    .global.ok { background:#e6ffed; border-color:#b7ebc6; }
-    .global.panic { background:#ffecec; border-color:#ffb3b3; color:#a40000; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
-    .card { border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:8px; }
-    .head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .code { display:flex; align-items:center; gap:8px; font-weight:700; }
-    .dot { width:12px; height:12px; border-radius:50%; border:1px solid #c7c7c7; }
-    .green { background:var(--ok); } .red { background:var(--bad); }
-    .actions { display:flex; gap:8px; flex-wrap:wrap; }
-    button { cursor:pointer; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:#fff; font-weight:600; }
-    button:disabled { opacity:.55; cursor:not-allowed; }
-    .who { font-size:13px; color:#0f172a; background:#f3f4f6; border:1px dashed #e5e7eb; border-radius:10px; padding:6px 8px; }
-    .who.empty { color:var(--muted); }
-    .footer { margin-top:16px; font-size:12px; color:var(--muted); }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Статуси — Telegram WebApp</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --bg:#fff; --fg:#111; --muted:#666; --line:#eaeaea; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--fg); }
+  .wrap { padding: 16px; max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 12px; }
+  .note { color:var(--muted); font-size:12px; margin-bottom:12px; }
+  .row { display:grid; grid-template-columns: 1fr auto; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .title { display:flex; align-items:center; gap:10px; }
+  .dot { width:14px; height:14px; border-radius:50%; box-shadow: 0 0 0 2px #00000010; }
+  .green { background:#18c964; box-shadow:0 0 0 2px #18c96422; }
+  .red { background:#ff3b30; box-shadow:0 0 0 2px #ff3b3022; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; }
+  button { padding:8px 12px; border:1px solid var(--line); background:#fafafa; border-radius:10px; cursor:pointer; }
+  button:hover { background:#f0f0f0; }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 8px; }
+  input { padding:8px 10px; border:1px solid var(--line); border-radius:10px; }
+  .footer-note { color:var(--muted); font-size:12px; margin-top:10px; }
+  .ok { color:#18c964; }
+  .err { color:#ff3b30; }
+</style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top">
-    <div id="banner" class="banner">…</div>
-    <div id="global" class="global ok">Все спокійно</div>
-  </div>
+  <h1>Онлайн-статуси</h1>
+  <div class="note">Зміни миттєво розлітаються всім відкритим екранам. Для “ШУХЕР” введи пароль.</div>
 
-  <div id="grid" class="grid"></div>
-
-  <div class="footer">
-    Реал-тайм: всі зміни видно без перезавантаження. Якщо не підставиш Edge Functions — бот просто не писатиме у Telegram (але статуси оновлюються).
+  <div class="controls">
+    <input id="name" placeholder="Ваше ім’я" />
+    <input id="password" type="password" placeholder="Пароль для змін" />
+    <button id="refresh">Оновити</button>
   </div>
+  <div class="footer-note" id="who"></div>
+
+  <div id="list"></div>
+
+  <div class="footer-note">Після натискання “ШУХЕР” прилітає повідомлення від бота: <b>4.1 ШУХЕР (ім’я)</b>.</div>
+  <div id="msg" class="footer-note"></div>
 </div>
 
 <script>
-/* ================== CONFIG — ЗАМІНИ ЦІ ЗНАЧЕННЯ ================== */
-const SUPABASE_URL  = "https://YOUR-PROJECT-REF.supabase.co";   // Settings → API → Project URL
-const SUPABASE_ANON = "YOUR-ANON-PUBLIC-KEY";                   // Settings → API → anon public
-
-// Якщо НЕ маєш Edge Functions — лиши "" (порожній рядок) — тоді оновлення підуть напряму в таблицю
-const SET_STATUS_FUNCTION_URL = "";  // наприклад: "https://xxxx.functions.supabase.co/set-status"
-const CHECK_IN_FUNCTION_URL   = "";  // наприклад: "https://xxxx.functions.supabase.co/check-in"
-
-// Які розділи показувати (можеш міняти)
-const SECTIONS = ['1.1','2.1','3.1','4.1','4.2'];
-/* ================================================================= */
-
-const tg = window.Telegram?.WebApp;
-try { tg?.expand(); } catch {}
-
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-
-const gridEl   = document.getElementById('grid');
-const globalEl = document.getElementById('global');
-const bannerEl = document.getElementById('banner');
-
-const user = tg?.initDataUnsafe?.user;
-const userName = user
-  ? (user.username ? '@'+user.username : [user.first_name, user.last_name].filter(Boolean).join(' ') || ('id:'+user.id))
-  : 'Гість';
-bannerEl.textContent = `Ви: ${userName}`;
-
-let lastSections = [];
-let checkinsByCode = new Map();
-
-function setGlobal(items) {
-  const anyRed = items.some(i => i.status === 'red');
-  globalEl.textContent = anyRed ? 'ШУХЕР' : 'Все спокійно';
-  globalEl.className = 'global ' + (anyRed ? 'panic' : 'ok');
-}
-
-function cardTemplate(row) {
-  const { code, status, last_changed_name, updated_at } = row;
-  const list = checkinsByCode.get(code) || [];
-  const who  = list.length ? `👣 ${list.join(', ')}` : 'Ніхто не відмітився';
-  const time = updated_at ? new Date(updated_at).toLocaleTimeString() : '';
-  return `
-    <div class="card" data-code="${code}" data-status="${status}">
-      <div class="head">
-        <div class="code">
-          <div class="dot ${status === 'red' ? 'red' : 'green'}"></div>
-          <div>${code}</div>
-        </div>
-        <div style="font-size:12px; color:#6b7280;">
-          ${last_changed_name ? `Остання зміна: ${last_changed_name}` : ''} ${time ? `• ${time}` : ''}
-        </div>
-      </div>
-      <div class="actions">
-        <button class="toGreen">Зелений</button>
-        <button class="toRed">Червоний</button>
-        <button class="imHere">Я тут</button>
-      </div>
-      <div class="who ${list.length ? '' : 'empty'}">${who}</div>
-    </div>
-  `;
-}
-
-function renderSections(items) {
-  const byCode = new Map(items.map(i => [i.code, i]));
-  const ordered = SECTIONS.map(c => byCode.get(c)).filter(Boolean);
-
-  gridEl.innerHTML = ordered.map(cardTemplate).join('');
-  setGlobal(ordered);
-
-  gridEl.querySelectorAll('.card').forEach(el => {
-    const code = el.getAttribute('data-code');
-    const current = el.getAttribute('data-status');
-
-    const btnG = el.querySelector('.toGreen');
-    const btnR = el.querySelector('.toRed');
-    const btnH = el.querySelector('.imHere');
-
-    btnG.disabled = current === 'green';
-    btnR.disabled = current === 'red';
-
-    btnG.onclick = () => updateStatus(code, 'green', current);
-    btnR.onclick = () => updateStatus(code, 'red',  current);
-    btnH.onclick = () => checkIn(code);
-  });
-
-  lastSections = ordered;
-}
-
-function renderCheckins(list) {
-  checkinsByCode = new Map();
-  for (const row of (list || [])) {
-    if (!row.code) continue;
-    const arr = checkinsByCode.get(row.code) || [];
-    arr.push(row.user_name);
-    checkinsByCode.set(row.code, arr);
+  // --- Telegram theme → CSS vars
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.expand();
+    const p = tg.themeParams || {};
+    const map = (k, def) => p[k] || def;
+    document.documentElement.style.setProperty('--bg', map('bg_color', '#ffffff'));
+    document.documentElement.style.setProperty('--fg', map('text_color', '#111111'));
+    document.documentElement.style.setProperty('--muted', map('hint_color', '#666666'));
+    document.documentElement.style.setProperty('--line', map('section_separator_color', '#eaeaea'));
   }
-  renderSections(lastSections);
-}
 
-async function loadSections() {
-  const { data, error } = await client.from('sections').select('*').order('code');
-  if (error) { console.error(error); return; }
-  renderSections(data || []);
-}
+  const SUPABASE_URL = 'https://xlrihkophbzbrsknimin.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhscmloa29waGJ6YnJza25pbWluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTc4OTksImV4cCI6MjA3NjIzMzg5OX0.mQBCCYgcbKwoN6HZjvmwGi4F995t0HZ9Ty3gZnjbtis';
+  const SET_STATUS_FUNCTION_URL = 'https://xlrihkophbzbrsknimin.supabase.co/functions/v1/set-status';
 
-async function loadCheckins() {
-  const { data, error } = await client.from('section_checkins').select('*');
-  if (error) { console.error(error); return; }
-  renderCheckins(data || []);
-}
+  const { createClient } = window.supabase;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-let chSec, chChk;
-function subscribeRealtime() {
-  if (chSec) client.removeChannel(chSec);
-  if (chChk) client.removeChannel(chChk);
+  const elList = document.getElementById('list');
+  const elMsg  = document.getElementById('msg');
+  const elName = document.getElementById('name');
+  const elPass = document.getElementById('password');
+  const elWho  = document.getElementById('who');
 
-  chSec = client.channel('realtime:sections')
-    .on('postgres_changes', { event:'*', schema:'public', table:'sections' }, loadSections)
-    .subscribe();
+  // Prefill name from Telegram user
+  try {
+    const u = tg?.initDataUnsafe?.user;
+    if (u) {
+      const full = [u.first_name, u.last_name].filter(Boolean).join(' ');
+      elName.value = full || u.username || '';
+      elWho.textContent = `Ви: ${elName.value || '—'}`;
+    }
+  } catch {}
 
-  chChk = client.channel('realtime:checkins')
-    .on('postgres_changes', { event:'*', schema:'public', table:'section_checkins' }, loadCheckins)
-    .subscribe();
-}
+  document.getElementById('refresh').onclick = () => load();
 
-let clickCooldown = false;
-function cooldown(ms=800) {
-  clickCooldown = true;
-  setTimeout(() => clickCooldown = false, ms);
-}
+  async function load() {
+    const { data, error } = await supabase
+      .from('sections')
+      .select('*')
+      .order('code', { ascending: true });
 
-async function updateStatus(code, status, current) {
-  if (clickCooldown) return;
-  if (status === current) return;
+    if (error) {
+      show(`Помилка завантаження: ${error.message}`, true);
+      return;
+    }
+    render(data || []);
+  }
 
-  try { tg?.HapticFeedback?.impactOccurred?.('medium'); } catch {}
-  cooldown();
+  function render(items) {
+    elList.innerHTML = '';
+    items.forEach(it => {
+      const row = document.createElement('div');
+      row.className = 'row';
 
-  // Якщо є Edge Function — використовуємо її (щоб відправляла повідомлення в Telegram)
-  if (SET_STATUS_FUNCTION_URL) {
+      const left = document.createElement('div');
+      left.className = 'title';
+      const dot = document.createElement('span');
+      dot.className = 'dot ' + (it.status === 'red' ? 'red' : 'green');
+      const ttl = document.createElement('div');
+      ttl.textContent = `${it.code} — ${it.title}`;
+      left.appendChild(dot);
+      left.appendChild(ttl);
+
+      const right = document.createElement('div');
+      right.className = 'btns';
+      const bRed = document.createElement('button');
+      bRed.textContent = 'ШУХЕР (червоний)';
+      bRed.onclick = () => changeStatus(it.code, 'red');
+      const bGreen = document.createElement('button');
+      bGreen.textContent = 'Повернути зелений';
+      bGreen.onclick = () => changeStatus(it.code, 'green');
+      right.appendChild(bRed);
+      right.appendChild(bGreen);
+
+      row.appendChild(left);
+      row.appendChild(right);
+      elList.appendChild(row);
+    });
+  }
+
+  async function changeStatus(code, newStatus) {
+    const name = (elName.value || '').trim();
+    const password = (elPass.value || '').trim();
+    if (!name) { show('Вкажіть ім’я', true); return; }
+    if (!password) { show('Вкажіть пароль', true); return; }
+
     try {
       const res = await fetch(SET_STATUS_FUNCTION_URL, {
         method: 'POST',
-        headers: { 'content-type':'application/json' },
-        body: JSON.stringify({ code, status, tgInitData: tg?.initData || '' })
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code, newStatus, name, password })
       });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j.error || 'Request failed');
-      // Realtime сам оновить всіх
-      return;
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || res.statusText);
+      show('Оновлено ✔');
+      if (tg) tg.HapticFeedback.impactOccurred('medium');
     } catch (e) {
-      console.error(e);
-      alert('Помилка оновлення статусу через функцію. Перевір URL/секрети.');
-      return;
+      show('Помилка: ' + e.message, true);
+      if (tg) tg.HapticFeedback.notificationOccurred('error');
     }
   }
 
-  // Інакше — прямий апдейт таблиці (працює без функцій, але без Telegram-сповіщень)
-  const { error } = await client.from('sections')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('code', code);
-  if (error) {
-    console.error(error);
-    alert('Помилка оновлення статусу в таблиці.');
-  }
-}
-
-async function checkIn(code) {
-  if (clickCooldown) return;
-  cooldown(500);
-
-  // Якщо є Edge Function — шлемо через неї (із валідацією Telegram initData)
-  if (CHECK_IN_FUNCTION_URL) {
-    try {
-      const res = await fetch(CHECK_IN_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'content-type':'application/json' },
-        body: JSON.stringify({ code, tgInitData: tg?.initData || '' })
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j.error || 'Request failed');
-      return; // Realtime підтягне зміни
-    } catch (e) {
-      console.error(e);
-      alert('Помилка чекіну через функцію. Перевір URL/секрети.');
-      return;
-    }
+  function show(text, isErr=false) {
+    elMsg.className = 'footer-note ' + (isErr ? 'err' : 'ok');
+    elMsg.textContent = text;
+    clearTimeout(show._t);
+    show._t = setTimeout(() => { elMsg.textContent = ''; }, 4000);
   }
 
-  // Інакше — прямий upsert (працює без функцій)
-  const user_name = userName || 'Гість';
-  const { error } = await client.from('section_checkins').upsert({
-    user_id: 0,              // без Telegram WebApp немає user.id → ставимо 0 або робимо random
-    user_name,
-    code,
-    checked_at: new Date().toISOString()
-  });
-  if (error) {
-    console.error(error);
-    alert('Помилка чекіну в таблиці.');
-  }
-}
+  // Initial load:
+  load();
 
-// Старт
-(async function start() {
-  await Promise.all([loadSections(), loadCheckins()]);
-  subscribeRealtime();
-})();
+  // Realtime updates:
+  supabase.channel('sections-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sections' }, (payload) => {
+      // payload.new містить новий рядок — перезавантажимо список
+      load();
+      if (tg) tg.HapticFeedback.impactOccurred('light');
+    })
+    .subscribe();
 </script>
 </body>
 </html>
