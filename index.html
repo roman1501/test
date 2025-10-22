@@ -2,60 +2,198 @@
 <html lang="uk">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Статуси — Telegram WebApp</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root { --bg:#fff; --fg:#111; --muted:#666; --line:#eaeaea; }
-  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--fg); }
-  .wrap { padding: 16px; max-width: 760px; margin: 0 auto; }
-  h1 { font-size: 20px; margin: 0 0 12px; }
-  .note { color:var(--muted); font-size:12px; margin-bottom:12px; }
-  .row { display:grid; grid-template-columns: 1fr auto; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
-  .title { display:flex; align-items:center; gap:10px; }
-  .dot { width:14px; height:14px; border-radius:50%; box-shadow: 0 0 0 2px #00000010; }
-  .green { background:#18c964; box-shadow:0 0 0 2px #18c96422; }
-  .red { background:#ff3b30; box-shadow:0 0 0 2px #ff3b3022; }
-  .btns { display:flex; gap:8px; flex-wrap:wrap; }
-  button { padding:8px 12px; border:1px solid var(--line); background:#fafafa; border-radius:10px; cursor:pointer; }
-  button:hover { background:#f0f0f0; }
-  .controls { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 8px; }
-  input { padding:8px 10px; border:1px solid var(--line); border-radius:10px; }
-  .footer-note { color:var(--muted); font-size:12px; margin-top:10px; }
-  .ok { color:#18c964; }
-  .err { color:#ff3b30; }
+  :root{
+    --bg:#fff; --fg:#111; --muted:#6b7280; --line:#ececec;
+    --ok:#18c964; --err:#ff3b30; --card:#fafafa; --tap:#f3f4f6;
+    --radius:14px; --radius-sm:10px;
+    --shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --pad:16px; --gap:12px;
+    --h1: clamp(18px, 4vw, 22px);
+    --t1: clamp(14px, 3.6vw, 16px);
+    --t2: clamp(12px, 3.2vw, 14px);
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .a-fade{ animation: fade .18s ease-out both; }
+    @keyframes fade { from{opacity:.0; transform: translateY(4px)} to{opacity:1; transform:none} }
+    .pulse { animation: pulse 1s ease-in-out 1; }
+    @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  }
+
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Segoe UI Emoji";
+    background:var(--bg); color:var(--fg);
+  }
+
+  .wrap{
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    max-width: 840px; margin: 0 auto;
+  }
+
+  /* Sticky top controls */
+  .topbar{
+    position: sticky; top:0; z-index:10;
+    backdrop-filter: saturate(120%) blur(6px);
+    background: color-mix(in oklab, var(--bg) 84%, transparent);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar-inner{
+    padding: calc(env(safe-area-inset-top) + 10px) var(--pad) 10px;
+  }
+  h1{ font-size:var(--h1); margin:0 0 8px; line-height:1.2; }
+  .note{ color:var(--muted); font-size:var(--t2); margin:0 0 10px; }
+
+  .controls{
+    display:grid; gap:10px;
+    grid-template-columns: 1fr 1fr auto;
+    align-items:center;
+  }
+  @media (max-width:560px){
+    .controls{ grid-template-columns: 1fr; }
+  }
+  .control-row{
+    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  }
+
+  input{
+    width:100%;
+    padding:12px 12px;
+    border:1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background:var(--card);
+    font-size:var(--t1);
+    outline:none;
+  }
+  input:focus{ box-shadow: 0 0 0 2px color-mix(in oklab, var(--fg) 10%, transparent); }
+
+  .btn{
+    padding:12px 14px;
+    border:1px solid var(--line);
+    background:var(--tap);
+    border-radius: var(--radius-sm);
+    cursor:pointer; font-size:var(--t1);
+    user-select:none; -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn-primary{
+    background:var(--fg); color:var(--bg); border-color: var(--fg);
+  }
+
+  .who{ color:var(--muted); font-size:var(--t2); margin-top:6px; }
+
+  /* List */
+  #list{ padding: 12px var(--pad); display:grid; gap:10px; }
+  .row{
+    display:grid; gap:10px;
+    grid-template-columns: 1fr auto;
+    align-items:center;
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    padding:12px;
+    background: var(--bg);
+    box-shadow: var(--shadow);
+  }
+  @media (max-width:560px){
+    .row{ grid-template-columns: 1fr; }
+  }
+
+  .title{
+    display:flex; align-items:center; gap:10px; min-width:0;
+  }
+  .dot{
+    flex: 0 0 16px; width:16px; height:16px; border-radius:50%;
+    box-shadow: 0 0 0 2px #00000010;
+  }
+  .green{ background: var(--ok); box-shadow: 0 0 0 2px color-mix(in oklab, var(--ok) 20%, transparent); }
+  .red{ background: var(--err); box-shadow: 0 0 0 2px color-mix(in oklab, var(--err) 20%, transparent); }
+  .ttl{
+    font-size:var(--t1); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  /* Segmented buttons */
+  .btns{
+    display:flex; gap:8px; flex-wrap:wrap;
+  }
+  .seg{
+    display:flex; overflow:hidden; border-radius: 12px; border:1px solid var(--line);
+    background: var(--card);
+  }
+  .seg .seg-btn{
+    appearance:none; border:none; background:transparent; padding:12px 14px; font-size:var(--t1);
+    cursor:pointer; min-width: 140px; text-align:center;
+  }
+  @media (max-width:560px){
+    .seg{ width:100%; }
+    .seg .seg-btn{ flex:1; min-width: auto; }
+  }
+  .seg .seg-btn + .seg-btn{ border-left:1px solid var(--line); }
+  .seg .danger{ color:var(--err); font-weight:600; }
+  .seg .ok{ color:var(--ok); font-weight:600; }
+
+  .footer-note{
+    color:var(--muted); font-size:var(--t2);
+    padding: 0 var(--pad);
+    margin: 6px 0 10px;
+  }
+  .msg { padding: 8px var(--pad) max(8px, env(safe-area-inset-bottom)); }
+  .ok-t{ color:var(--ok); }
+  .err-t{ color:var(--err); }
+
+  /* Skeleton while loading */
+  .skeleton{
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    padding:12px; background: var(--card);
+    position:relative; overflow:hidden;
+  }
+  .sk-line{ height:14px; background:linear-gradient(90deg, #eee, #f7f7f7, #eee); border-radius:8px; }
+  .sk-gap{ height:10px; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Онлайн-статуси</h1>
-  <div class="note">Зміни миттєво розлітаються всім відкритим екранам. Для “ШУХЕР” введи пароль.</div>
+  <div class="wrap">
 
-  <div class="controls">
-    <input id="name" placeholder="Ваше ім’я" />
-    <input id="password" type="password" placeholder="Пароль для змін" />
-    <button id="refresh">Оновити</button>
+    <div class="topbar">
+      <div class="topbar-inner">
+        <h1>Онлайн-статуси</h1>
+        <p class="note">Зміни миттєво розлітаються всім відкритим екранам. Для “ШУХЕР” введи пароль.</p>
+
+        <div class="controls">
+          <input id="name" placeholder="Ваше ім’я" inputmode="text" autocomplete="name" />
+          <input id="password" type="password" placeholder="Пароль для змін" autocomplete="current-password" />
+          <button id="refresh" class="btn btn-primary">Оновити</button>
+        </div>
+        <div class="who" id="who"></div>
+      </div>
+    </div>
+
+    <div id="list">
+      <!-- початкові skeleton-рядки -->
+      <div class="skeleton a-fade"><div class="sk-line" style="width:60%"></div><div class="sk-gap"></div><div class="sk-line" style="width:40%"></div></div>
+      <div class="skeleton a-fade"><div class="sk-line" style="width:72%"></div><div class="sk-gap"></div><div class="sk-line" style="width:35%"></div></div>
+    </div>
+
+    <div class="footer-note">Після натискання “ШУХЕР” прилітає повідомлення від бота: <b>4.1 ШУХЕР (ім’я)</b>.</div>
+    <div id="msg" class="footer-note msg"></div>
   </div>
-  <div class="footer-note" id="who"></div>
-
-  <div id="list"></div>
-
-  <div class="footer-note">Після натискання “ШУХЕР” прилітає повідомлення від бота: <b>4.1 ШУХЕР (ім’я)</b>.</div>
-  <div id="msg" class="footer-note"></div>
-</div>
 
 <script>
   // --- Telegram theme → CSS vars
   const tg = window.Telegram?.WebApp;
   if (tg) {
-    tg.expand();
+    tg.expand?.();
     const p = tg.themeParams || {};
     const map = (k, def) => p[k] || def;
-    document.documentElement.style.setProperty('--bg', map('bg_color', '#ffffff'));
-    document.documentElement.style.setProperty('--fg', map('text_color', '#111111'));
-    document.documentElement.style.setProperty('--muted', map('hint_color', '#666666'));
-    document.documentElement.style.setProperty('--line', map('section_separator_color', '#eaeaea'));
+    document.documentElement.style.setProperty('--bg',    map('bg_color', '#ffffff'));
+    document.documentElement.style.setProperty('--fg',    map('text_color', '#111111'));
+    document.documentElement.style.setProperty('--muted', map('hint_color', '#6b7280'));
+    document.documentElement.style.setProperty('--line',  map('section_separator_color', '#ececec'));
   }
 
   const SUPABASE_URL = 'https://xlrihkophbzbrsknimin.supabase.co';
@@ -83,44 +221,61 @@
 
   document.getElementById('refresh').onclick = () => load();
 
+  // Debounce helper (захист від спаму)
+  function debounce(fn, ms=250){
+    let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); };
+  }
+
+  // Завантаження списку
   async function load() {
     const { data, error } = await supabase
       .from('sections')
       .select('*')
       .order('code', { ascending: true });
 
-    if (error) {
-      show(`Помилка завантаження: ${error.message}`, true);
-      return;
-    }
+    if (error) { show(`Помилка завантаження: ${error.message}`, true); return; }
     render(data || []);
   }
 
+  // Рендер рядка
   function render(items) {
     elList.innerHTML = '';
     items.forEach(it => {
       const row = document.createElement('div');
-      row.className = 'row';
+      row.className = 'row a-fade';
 
+      // left
       const left = document.createElement('div');
       left.className = 'title';
       const dot = document.createElement('span');
       dot.className = 'dot ' + (it.status === 'red' ? 'red' : 'green');
       const ttl = document.createElement('div');
+      ttl.className = 'ttl';
       ttl.textContent = `${it.code} — ${it.title}`;
       left.appendChild(dot);
       left.appendChild(ttl);
 
+      // right (segmented)
       const right = document.createElement('div');
       right.className = 'btns';
+      const seg = document.createElement('div');
+      seg.className = 'seg';
+
       const bRed = document.createElement('button');
-      bRed.textContent = 'ШУХЕР (червоний)';
-      bRed.onclick = () => changeStatus(it.code, 'red');
+      bRed.className = 'seg-btn danger';
+      bRed.textContent = 'ШУХЕР';
+      bRed.ariaLabel = `Увімкнути червоний для ${it.code}`;
+      bRed.onclick = () => changeStatus(it.code, 'red', dot);
+
       const bGreen = document.createElement('button');
-      bGreen.textContent = 'Повернути зелений';
-      bGreen.onclick = () => changeStatus(it.code, 'green');
-      right.appendChild(bRed);
-      right.appendChild(bGreen);
+      bGreen.className = 'seg-btn ok';
+      bGreen.textContent = 'Зелений';
+      bGreen.ariaLabel = `Повернути зелений для ${it.code}`;
+      bGreen.onclick = () => changeStatus(it.code, 'green', dot);
+
+      seg.appendChild(bRed);
+      seg.appendChild(bGreen);
+      right.appendChild(seg);
 
       row.appendChild(left);
       row.appendChild(right);
@@ -128,11 +283,17 @@
     });
   }
 
-  async function changeStatus(code, newStatus) {
+  // Оптимістичне оновлення з валідацією
+  async function changeStatus(code, newStatus, dotEl) {
     const name = (elName.value || '').trim();
     const password = (elPass.value || '').trim();
     if (!name) { show('Вкажіть ім’я', true); return; }
     if (!password) { show('Вкажіть пароль', true); return; }
+
+    // optimistic UI (миттєва анімація точки)
+    const prev = dotEl.classList.contains('red') ? 'red' : 'green';
+    dotEl.classList.remove('red','green');
+    dotEl.classList.add(newStatus === 'red' ? 'red' : 'green', 'pulse');
 
     try {
       const res = await fetch(SET_STATUS_FUNCTION_URL, {
@@ -143,15 +304,20 @@
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || res.statusText);
       show('Оновлено ✔');
-      if (tg) tg.HapticFeedback.impactOccurred('medium');
+      tg?.HapticFeedback?.impactOccurred?.('medium');
     } catch (e) {
+      // відкат у разі помилки
+      dotEl.classList.remove('red','green');
+      dotEl.classList.add(prev);
       show('Помилка: ' + e.message, true);
-      if (tg) tg.HapticFeedback.notificationOccurred('error');
+      tg?.HapticFeedback?.notificationOccurred?.('error');
+    } finally {
+      setTimeout(()=>dotEl.classList.remove('pulse'), 600);
     }
   }
 
   function show(text, isErr=false) {
-    elMsg.className = 'footer-note ' + (isErr ? 'err' : 'ok');
+    elMsg.className = 'footer-note msg ' + (isErr ? 'err-t' : 'ok-t');
     elMsg.textContent = text;
     clearTimeout(show._t);
     show._t = setTimeout(() => { elMsg.textContent = ''; }, 4000);
@@ -160,12 +326,12 @@
   // Initial load:
   load();
 
-  // Realtime updates:
+  // Realtime updates (перезавантажуємо список за зміни)
+  const debouncedReload = debounce(load, 150);
   supabase.channel('sections-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sections' }, (payload) => {
-      // payload.new містить новий рядок — перезавантажимо список
-      load();
-      if (tg) tg.HapticFeedback.impactOccurred('light');
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sections' }, () => {
+      debouncedReload();
+      tg?.HapticFeedback?.impactOccurred?.('light');
     })
     .subscribe();
 </script>
