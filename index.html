@@ -340,7 +340,7 @@
       const res = await fetch(CHECK_IN_FUNCTION_URL, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ code, name, present })
+        body: JSON.stringify({ code, name, present, password: elPass.value.trim() })
       });
       const json = await res.json().catch(()=> ({}));
       if (!res.ok) throw new Error(json?.error || res.statusText);
