@@ -23,18 +23,13 @@
     .pulse { animation: pulse 1s ease-in-out 1; }
     @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
   }
-
   html,body{ height:100%; }
   body{
     margin:0;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Segoe UI Emoji";
     background:var(--bg); color:var(--fg);
   }
-
-  .wrap{
-    padding-bottom: max(12px, env(safe-area-inset-bottom));
-    max-width: 840px; margin: 0 auto;
-  }
+  .wrap{ padding-bottom: max(12px, env(safe-area-inset-bottom)); max-width: 840px; margin: 0 auto; }
 
   /* Sticky top controls */
   .topbar{
@@ -43,9 +38,7 @@
     background: color-mix(in oklab, var(--bg) 84%, transparent);
     border-bottom:1px solid var(--line);
   }
-  .topbar-inner{
-    padding: calc(env(safe-area-inset-top) + 10px) var(--pad) 10px;
-  }
+  .topbar-inner{ padding: calc(env(safe-area-inset-top) + 10px) var(--pad) 10px; }
   h1{ font-size:var(--h1); margin:0 0 8px; line-height:1.2; }
   .note{ color:var(--muted); font-size:var(--t2); margin:0 0 10px; }
 
@@ -54,37 +47,19 @@
     grid-template-columns: 1fr 1fr auto;
     align-items:center;
   }
-  @media (max-width:560px){
-    .controls{ grid-template-columns: 1fr; }
-  }
-  .control-row{
-    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
-  }
-
+  @media (max-width:560px){ .controls{ grid-template-columns: 1fr; } }
   input{
-    width:100%;
-    padding:12px 12px;
-    border:1px solid var(--line);
-    border-radius: var(--radius-sm);
-    background:var(--card);
-    font-size:var(--t1);
-    outline:none;
+    width:100%; padding:12px 12px; border:1px solid var(--line);
+    border-radius: var(--radius-sm); background:var(--card); font-size:var(--t1); outline:none;
   }
   input:focus{ box-shadow: 0 0 0 2px color-mix(in oklab, var(--fg) 10%, transparent); }
-
   .btn{
-    padding:12px 14px;
-    border:1px solid var(--line);
-    background:var(--tap);
-    border-radius: var(--radius-sm);
-    cursor:pointer; font-size:var(--t1);
+    padding:12px 14px; border:1px solid var(--line); background:var(--tap);
+    border-radius: var(--radius-sm); cursor:pointer; font-size:var(--t1);
     user-select:none; -webkit-tap-highlight-color: transparent;
   }
   .btn:active{ transform: translateY(1px); }
-  .btn-primary{
-    background:var(--fg); color:var(--bg); border-color: var(--fg);
-  }
-
+  .btn-primary{ background:var(--fg); color:var(--bg); border-color: var(--fg); }
   .who{ color:var(--muted); font-size:var(--t2); margin-top:6px; }
 
   /* List */
@@ -92,66 +67,60 @@
   .row{
     display:grid; gap:10px;
     grid-template-columns: 1fr auto;
-    align-items:center;
+    align-items:start;
     border:1px solid var(--line);
     border-radius: var(--radius);
     padding:12px;
     background: var(--bg);
     box-shadow: var(--shadow);
   }
-  @media (max-width:560px){
-    .row{ grid-template-columns: 1fr; }
-  }
+  @media (max-width:680px){ .row{ grid-template-columns: 1fr; } }
 
-  .title{
-    display:flex; align-items:center; gap:10px; min-width:0;
-  }
-  .dot{
-    flex: 0 0 16px; width:16px; height:16px; border-radius:50%;
-    box-shadow: 0 0 0 2px #00000010;
-  }
+  .title{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .dot{ flex: 0 0 16px; width:16px; height:16px; border-radius:50%; box-shadow: 0 0 0 2px #00000010; }
   .green{ background: var(--ok); box-shadow: 0 0 0 2px color-mix(in oklab, var(--ok) 20%, transparent); }
   .red{ background: var(--err); box-shadow: 0 0 0 2px color-mix(in oklab, var(--err) 20%, transparent); }
-  .ttl{
-    font-size:var(--t1); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
+  .ttl{ font-size:var(--t1); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-  /* Segmented buttons */
-  .btns{
-    display:flex; gap:8px; flex-wrap:wrap;
-  }
+  /* Actions: status + check-in */
+  .actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .seg{
-    display:flex; overflow:hidden; border-radius: 12px; border:1px solid var(--line);
-    background: var(--card);
+    display:flex; overflow:hidden; border-radius: 12px; border:1px solid var(--line); background: var(--card);
   }
   .seg .seg-btn{
     appearance:none; border:none; background:transparent; padding:12px 14px; font-size:var(--t1);
-    cursor:pointer; min-width: 140px; text-align:center;
+    cursor:pointer; min-width: 120px; text-align:center;
   }
-  @media (max-width:560px){
-    .seg{ width:100%; }
-    .seg .seg-btn{ flex:1; min-width: auto; }
-  }
+  @media (max-width:560px){ .seg{ width:100%; } .seg .seg-btn{ flex:1; min-width:auto; } }
   .seg .seg-btn + .seg-btn{ border-left:1px solid var(--line); }
   .seg .danger{ color:var(--err); font-weight:600; }
   .seg .ok{ color:var(--ok); font-weight:600; }
 
-  .footer-note{
-    color:var(--muted); font-size:var(--t2);
-    padding: 0 var(--pad);
-    margin: 6px 0 10px;
+  /* Check-ins */
+  .who-line{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .chips{
+    display:flex; gap:6px; flex-wrap:wrap; align-items:center; max-width:100%;
   }
-  .msg { padding: 8px var(--pad) max(8px, env(safe-area-inset-bottom)); }
-  .ok-t{ color:var(--ok); }
-  .err-t{ color:var(--err); }
+  .chip{
+    display:inline-flex; align-items:center; justify-content:center;
+    padding:6px 8px; border-radius:999px; background:var(--card);
+    border:1px solid var(--line); font-size:var(--t2); line-height:1; white-space:nowrap;
+  }
+  .chip-badge{ font-weight:700; }
+  .me{ border-color: color-mix(in oklab, var(--ok) 40%, var(--line)); background: color-mix(in oklab, var(--ok) 12%, var(--card)); }
+  .check-btn{
+    padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--tap); font-size:var(--t2);
+  }
+  .check-btn.primary{ background: var(--ok); color:#fff; border-color: var(--ok); }
+  .check-btn.ghost{ background: transparent; }
 
-  /* Skeleton while loading */
-  .skeleton{
-    border:1px solid var(--line);
-    border-radius: var(--radius);
-    padding:12px; background: var(--card);
-    position:relative; overflow:hidden;
-  }
+  .footer-note{ color:var(--muted); font-size:var(--t2); padding: 0 var(--pad); margin: 6px 0 10px; }
+  .msg { padding: 8px var(--pad) max(8px, env(safe-area-inset-bottom)); }
+  .ok-t{ color:var(--ok); } .err-t{ color:var(--err); }
+
+  /* Skeleton */
+  .skeleton{ border:1px solid var(--line); border-radius: var(--radius); padding:12px; background: var(--card); position:relative; overflow:hidden; }
   .sk-line{ height:14px; background:linear-gradient(90deg, #eee, #f7f7f7, #eee); border-radius:8px; }
   .sk-gap{ height:10px; }
 </style>
@@ -162,7 +131,7 @@
     <div class="topbar">
       <div class="topbar-inner">
         <h1>Онлайн-статуси</h1>
-        <p class="note">Зміни миттєво розлітаються всім відкритим екранам. Для “ШУХЕР” введи пароль.</p>
+        <p class="note">Зміни миттєво розлітаються всім відкритим екранам. Для “ШУХЕР” введи пароль. Тепер можна відмічатися, хто де 👇</p>
 
         <div class="controls">
           <input id="name" placeholder="Ваше ім’я" inputmode="text" autocomplete="name" />
@@ -174,17 +143,16 @@
     </div>
 
     <div id="list">
-      <!-- початкові skeleton-рядки -->
       <div class="skeleton a-fade"><div class="sk-line" style="width:60%"></div><div class="sk-gap"></div><div class="sk-line" style="width:40%"></div></div>
       <div class="skeleton a-fade"><div class="sk-line" style="width:72%"></div><div class="sk-gap"></div><div class="sk-line" style="width:35%"></div></div>
     </div>
 
-    <div class="footer-note">Після натискання “ШУХЕР” прилітає повідомлення від бота: <b>4.1 ШУХЕР (ім’я)</b>.</div>
+    <div class="footer-note">Після “ШУХЕР” ще летить бот-повідомлення: <b>4.1 ШУХЕР (ім’я)</b>. Відмітки синхронізуються в реальному часі.</div>
     <div id="msg" class="footer-note msg"></div>
   </div>
 
 <script>
-  // --- Telegram theme → CSS vars
+  // Telegram theme → CSS
   const tg = window.Telegram?.WebApp;
   if (tg) {
     tg.expand?.();
@@ -196,13 +164,16 @@
     document.documentElement.style.setProperty('--line',  map('section_separator_color', '#ececec'));
   }
 
+  // Supabase/Functions
   const SUPABASE_URL = 'https://xlrihkophbzbrsknimin.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhscmloa29waGJ6YnJza25pbWluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTc4OTksImV4cCI6MjA3NjIzMzg5OX0.mQBCCYgcbKwoN6HZjvmwGi4F995t0HZ9Ty3gZnjbtis';
   const SET_STATUS_FUNCTION_URL = 'https://xlrihkophbzbrsknimin.supabase.co/functions/v1/set-status';
+  const CHECK_IN_FUNCTION_URL   = 'https://xlrihkophbzbrsknimin.supabase.co/functions/v1/check-in';
 
   const { createClient } = window.supabase;
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
+  // Elements
   const elList = document.getElementById('list');
   const elMsg  = document.getElementById('msg');
   const elName = document.getElementById('name');
@@ -221,30 +192,55 @@
 
   document.getElementById('refresh').onclick = () => load();
 
-  // Debounce helper (захист від спаму)
-  function debounce(fn, ms=250){
-    let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); };
-  }
+  // Debounce
+  function debounce(fn, ms=250){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
 
-  // Завантаження списку
+  // --- DATA STATE
+  let presentMap = new Map(); // code -> Set(names)
+  const me = ()=> (elName.value || '').trim();
+
+  // Load sections + check-ins
   async function load() {
-    const { data, error } = await supabase
-      .from('sections')
-      .select('*')
-      .order('code', { ascending: true });
+    const [sections, checkins] = await Promise.all([
+      supabase.from('sections').select('*').order('code', { ascending: true }),
+      supabase.from('checkins').select('code,name,active').eq('active', true)
+    ]);
 
-    if (error) { show(`Помилка завантаження: ${error.message}`, true); return; }
-    render(data || []);
+    if (sections.error) { show(`Помилка завантаження: ${sections.error.message}`, true); return; }
+    if (checkins.error && checkins.error.message) {
+      // таблиці ще може не бути — просто покажемо секції без відміток
+      console.warn('checkins error:', checkins.error.message);
+    }
+
+    // build map
+    presentMap.clear();
+    (checkins.data || []).forEach(row => {
+      const key = row.code;
+      if (!presentMap.has(key)) presentMap.set(key, new Set());
+      presentMap.get(key).add(row.name);
+    });
+
+    render(sections.data || []);
   }
 
-  // Рендер рядка
+  function initials(n){
+    const parts = (n || '').trim().split(/\s+/).slice(0,2);
+    if (!parts.length) return '??';
+    if (parts.length===1) return parts[0].slice(0,2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
   function render(items) {
     elList.innerHTML = '';
     items.forEach(it => {
+      const code = it.code;
+      const ppl = Array.from(presentMap.get(code) || []);
+      const iAmHere = ppl.includes(me());
+
       const row = document.createElement('div');
       row.className = 'row a-fade';
 
-      // left
+      // left: title
       const left = document.createElement('div');
       left.className = 'title';
       const dot = document.createElement('span');
@@ -255,42 +251,63 @@
       left.appendChild(dot);
       left.appendChild(ttl);
 
-      // right (segmented)
+      // right: status buttons
       const right = document.createElement('div');
-      right.className = 'btns';
+      right.className = 'actions';
       const seg = document.createElement('div');
       seg.className = 'seg';
-
       const bRed = document.createElement('button');
       bRed.className = 'seg-btn danger';
       bRed.textContent = 'ШУХЕР';
-      bRed.ariaLabel = `Увімкнути червоний для ${it.code}`;
-      bRed.onclick = () => changeStatus(it.code, 'red', dot);
-
+      bRed.onclick = () => changeStatus(code, 'red', dot);
       const bGreen = document.createElement('button');
       bGreen.className = 'seg-btn ok';
       bGreen.textContent = 'Зелений';
-      bGreen.ariaLabel = `Повернути зелений для ${it.code}`;
-      bGreen.onclick = () => changeStatus(it.code, 'green', dot);
-
-      seg.appendChild(bRed);
-      seg.appendChild(bGreen);
+      bGreen.onclick = () => changeStatus(code, 'green', dot);
+      seg.appendChild(bRed); seg.appendChild(bGreen);
       right.appendChild(seg);
+
+      // who line: chips + check-in button
+      const whoLine = document.createElement('div');
+      whoLine.className = 'who-line';
+
+      const chips = document.createElement('div');
+      chips.className = 'chips';
+      const count = document.createElement('span');
+      count.className = 'chip chip-badge';
+      count.textContent = `👥 ${ppl.length}`;
+      chips.appendChild(count);
+
+      ppl.forEach(n => {
+        const chip = document.createElement('span');
+        chip.className = 'chip' + (n === me() ? ' me' : '');
+        chip.title = n;
+        chip.textContent = `${initials(n)} · ${n}`;
+        chips.appendChild(chip);
+      });
+
+      const checkBtn = document.createElement('button');
+      checkBtn.className = 'check-btn ' + (iAmHere ? 'ghost' : 'primary');
+      checkBtn.textContent = iAmHere ? 'Вийти' : 'Я тут';
+      checkBtn.onclick = () => toggleCheckIn(code, !iAmHere);
+
+      whoLine.appendChild(chips);
+      whoLine.appendChild(checkBtn);
 
       row.appendChild(left);
       row.appendChild(right);
+      row.appendChild(whoLine);
       elList.appendChild(row);
     });
   }
 
-  // Оптимістичне оновлення з валідацією
+  // Status change
   async function changeStatus(code, newStatus, dotEl) {
-    const name = (elName.value || '').trim();
+    const name = me();
     const password = (elPass.value || '').trim();
     if (!name) { show('Вкажіть ім’я', true); return; }
     if (!password) { show('Вкажіть пароль', true); return; }
 
-    // optimistic UI (миттєва анімація точки)
     const prev = dotEl.classList.contains('red') ? 'red' : 'green';
     dotEl.classList.remove('red','green');
     dotEl.classList.add(newStatus === 'red' ? 'red' : 'green', 'pulse');
@@ -306,13 +323,32 @@
       show('Оновлено ✔');
       tg?.HapticFeedback?.impactOccurred?.('medium');
     } catch (e) {
-      // відкат у разі помилки
-      dotEl.classList.remove('red','green');
-      dotEl.classList.add(prev);
+      dotEl.classList.remove('red','green'); dotEl.classList.add(prev);
       show('Помилка: ' + e.message, true);
       tg?.HapticFeedback?.notificationOccurred?.('error');
     } finally {
       setTimeout(()=>dotEl.classList.remove('pulse'), 600);
+    }
+  }
+
+  // Check-in / Check-out
+  async function toggleCheckIn(code, present){
+    const name = me();
+    if (!name) { show('Вкажіть ім’я', true); return; }
+
+    try {
+      const res = await fetch(CHECK_IN_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code, name, present })
+      });
+      const json = await res.json().catch(()=> ({}));
+      if (!res.ok) throw new Error(json?.error || res.statusText);
+      show(present ? 'Відмічено ✅' : 'Вихід ✅');
+      tg?.HapticFeedback?.impactOccurred?.('light');
+    } catch (e) {
+      show('Помилка відмітки: ' + e.message, true);
+      tg?.HapticFeedback?.notificationOccurred?.('error');
     }
   }
 
@@ -326,12 +362,17 @@
   // Initial load:
   load();
 
-  // Realtime updates (перезавантажуємо список за зміни)
+  // Realtime: sections + checkins
   const debouncedReload = debounce(load, 150);
   supabase.channel('sections-realtime')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'sections' }, () => {
+      debouncedReload(); tg?.HapticFeedback?.impactOccurred?.('light');
+    })
+    .subscribe();
+
+  supabase.channel('checkins-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'checkins' }, () => {
       debouncedReload();
-      tg?.HapticFeedback?.impactOccurred?.('light');
     })
     .subscribe();
 </script>
