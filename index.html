@@ -37,7 +37,11 @@
     backdrop-filter: saturate(120%) blur(6px);
     background: color-mix(in oklab, var(--bg) 84%, transparent);
     border-bottom:1px solid var(--line);
+    transition: transform .2s ease;
   }
+  /* Коли клавіатура відкрита — звільняємо більше місця списку */
+  body.kb-open .topbar { position: static; }
+
   .topbar-inner{ padding: calc(env(safe-area-inset-top) + 10px) var(--pad) 10px; }
   h1{ font-size:var(--h1); margin:0 0 8px; line-height:1.2; }
   .note{ color:var(--muted); font-size:var(--t2); margin:0 0 10px; }
@@ -77,6 +81,8 @@
     padding:12px;
     background: var(--bg);
     box-shadow: var(--shadow);
+    /* щоб scrollIntoView не ховав рядки під клавіатурою */
+    scroll-margin-bottom: 80px;
   }
   @media (max-width:680px){ .row{ grid-template-columns: 1fr; } }
 
@@ -145,7 +151,10 @@
 
         <div class="controls">
           <input id="name" placeholder="Ваше ім’я" inputmode="text" autocomplete="name" />
-          <input id="password" type="password" placeholder="Пароль для змін" autocomplete="current-password" />
+          <!-- пароль: автозакриття клавіатури після 5 символів -->
+          <input id="password" type="password" placeholder="Пароль для змін"
+                 autocomplete="one-time-code" inputmode="numeric"
+                 enterkeyhint="done" maxlength="5" />
           <button id="refresh" class="btn btn-primary" type="button">Оновити</button>
         </div>
         <input id="search" class="search" placeholder="Пошук секції..." />
@@ -459,6 +468,57 @@
   // Search & Refresh
   btnRefresh.addEventListener('click', () => load());
   elSearch.addEventListener('input', () => render(lastItems));
+
+  // --- НОВЕ: автозакриття клавіатури у полі пароля після 5 символів
+  elPass.addEventListener('input', () => {
+    const max = elPass.maxLength || 5;
+    if (elPass.value.length >= max) {
+      elPass.blur(); // закриє софт-клавіатуру
+      tg?.HapticFeedback?.impactOccurred?.('light');
+    }
+  });
+
+  // --- НОВЕ: автоскрол до видимої зони при фокусі (fallback на випадок без visualViewport)
+  ['name', 'password', 'search'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('focus', () => {
+      setTimeout(() => {
+        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch {}
+      }, 150);
+    });
+  });
+
+  // --- НОВЕ: “ухиляння” від клавіатури через VisualViewport
+  (function keyboardDodge(){
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const wrap = document.querySelector('.wrap');
+
+    function applySafeBottom() {
+      // Висота, яку "зʼїла" клавіатура
+      const kb = Math.max(0, window.innerHeight - vv.height);
+      // Додаємо нижній паддінг контейнеру, щоб контент не ховався за клавіатурою
+      wrap.style.paddingBottom = `calc(${Math.ceil(kb)}px + max(12px, env(safe-area-inset-bottom)))`;
+
+      // Клас для дрібної адаптації (наприклад, відключити sticky topbar)
+      document.body.classList.toggle('kb-open', kb > 0);
+
+      // Підскролити активний елемент у зону видимості
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'BUTTON')) {
+        setTimeout(() => {
+          try { active.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch {}
+        }, 50);
+      }
+    }
+
+    vv.addEventListener('resize', applySafeBottom);
+    vv.addEventListener('scroll', applySafeBottom);
+    window.addEventListener('orientationchange', applySafeBottom);
+    applySafeBottom();
+  })();
 
   // Realtime: pause when hidden
   let subs = [];
