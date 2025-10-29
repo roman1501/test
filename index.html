@@ -1,87 +1,142 @@
 <!doctype html>
 <html lang="uk">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Статуси — Telegram WebApp</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-  :root{
-    --bg:#fff; --fg:#111; --muted:#6b7280; --line:#ececec;
-    --ok:#18c964; --err:#ff3b30; --card:#fafafa; --tap:#f3f4f6;
-    --chip-fg:var(--fg);
-    --radius:14px; --radius-sm:10px;
-    --shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-    --pad:16px; --gap:12px;
-    --h1: clamp(18px, 4vw, 22px);
-    --t1: clamp(14px, 3.6vw, 16px);
-    --t2: clamp(12px, 3.2vw, 14px);
-  }
-  @media (prefers-reduced-motion: no-preference){
-    .a-fade{ animation: fade .18s ease-out both; }
-    @keyframes fade { from{opacity:.0; transform: translateY(4px)} to{opacity:1; transform:none} }
-    .pulse { animation: pulse 1s ease-in-out 1; }
-    @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
-  }
-  html,body{ height:100%; }
-  body{
-    margin:0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Segoe UI Emoji";
-    background:var(--bg); color:var(--fg);
-  }
-  .wrap{ padding-bottom: max(12px, env(safe-area-inset-bottom)); max-width: 840px; margin: 0 auto; }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Статуси — Telegram WebApp</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --bg:#fff; --fg:#111; --muted:#6b7280; --line:#ececec;
+      --ok:#18c964; --err:#ff3b30; --card:#fafafa; --tap:#f3f4f6;
+      --chip-fg:var(--fg);
+      --radius:14px; --radius-sm:10px;
+      --shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --pad:16px; --gap:12px;
+      --h1: clamp(18px, 4vw, 22px);
+      --t1: clamp(14px, 3.6vw, 16px);
+      --t2: clamp(12px, 3.2vw, 14px);
+    }
+    @media (prefers-reduced-motion: no-preference){
+      .a-fade{ animation: fade .18s ease-out both; }
+      @keyframes fade { from{opacity:.0; transform: translateY(4px)} to{opacity:1; transform:none} }
+      .pulse { animation: pulse 1s ease-in-out 1; }
+      @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
+    }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Segoe UI Emoji";
+      background:var(--bg); color:var(--fg);
+    }
+    .wrap{ padding-bottom: max(12px, env(safe-area-inset-bottom)); max-width: 840px; margin: 0 auto; }
 
-  /* Sticky top controls */
-  .topbar{
-    position: sticky; top:0; z-index:10;
-    backdrop-filter: saturate(120%) blur(6px);
-@@ -99,113 +100,142 @@
-  }
-  .seg .seg-btn{
-    appearance:none; border:none; background:transparent; padding:12px 14px; font-size:var(--t1);
-    cursor:pointer; min-width: 120px; text-align:center;
-  }
-  @media (max-width:560px){ .seg{ width:100%; } .seg .seg-btn{ flex:1; min-width:auto; } }
-  .seg .seg-btn + .seg-btn{ border-left:1px solid var(--line); }
-  .seg .danger{ color:var(--err); font-weight:600; }
-  .seg .ok{ color:var(--ok); font-weight:600; }
+    /* Sticky top controls */
+    .topbar{
+      position: sticky; top:0; z-index:10;
+      backdrop-filter: saturate(120%) blur(6px);
+      background: color-mix(in oklab, var(--bg) 75%, transparent);
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar-inner{ padding: 12px var(--pad) var(--gap); display:flex; flex-direction:column; gap: var(--gap); }
+    h1{ font-size: var(--h1); margin: 0; }
+    .note{ margin: 0; color: var(--muted); font-size: var(--t2); }
 
-  /* Pin */
-  .pin{
-    background:transparent; border:1px dashed var(--line); padding:8px 10px; border-radius:10px; font-size:var(--t2);
-  }
-  .pinned{ border-color: var(--ok); }
+    .controls{ display:flex; gap: 8px; flex-wrap: wrap; }
+    .controls input, .controls button{
+      font-size: var(--t1); padding: 10px 12px; border-radius: var(--radius-sm);
+      border: 1px solid var(--line); background: var(--card); color: var(--fg);
+    }
+    .controls input{ flex: 1 1 220px; min-width: 140px; }
+    .btn{ cursor:pointer; }
+    .btn-primary{ background: var(--ok); color: #fff; border-color: var(--ok); }
 
-  /* Check-ins */
-  .who-line{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  .chips{
-    display:flex; gap:6px; flex-wrap:wrap; align-items:center; max-width:100%;
-  }
-  .chip{
-    display:inline-flex; align-items:center; justify-content:center;
-    padding:6px 8px; border-radius:999px; background:var(--card);
-    border:1px solid var(--line); font-size:var(--t2); line-height:1; white-space:nowrap;
-    color:var(--chip-fg);
-  }
-  .chip-badge{ font-weight:700; }
-  .me{ border-color: color-mix(in oklab, var(--ok) 40%, var(--line)); background: color-mix(in oklab, var(--ok) 12%, var(--card)); }
-  .check-btn{
-    padding:10px 12px; border-radius:10px; border:1px solid var(--line);
-    background:var(--tap); font-size:var(--t2);
-  }
-  .check-btn.primary{ background: var(--ok); color:#fff; border-color: var(--ok); }
-  .check-btn.ghost{ background: transparent; }
+    .search{
+      width: 100%; box-sizing: border-box; margin-top: 2px;
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      border: 1px solid var(--line); background: var(--tap); font-size: var(--t1);
+    }
 
-  .footer-note{ color:var(--muted); font-size:var(--t2); padding: 0 var(--pad); margin: 6px 0 10px; }
-  .msg { padding: 8px var(--pad) max(8px, env(safe-area-inset-bottom)); }
-  .ok-t{ color:var(--ok); } .err-t{ color:var(--err); }
+    .who{ font-size: var(--t2); color: var(--muted); }
 
-  /* Skeleton */
-  .skeleton{ border:1px solid var(--line); border-radius: var(--radius); padding:12px; background: var(--card); position:relative; overflow:hidden; }
-  .sk-line{ height:14px; background:linear-gradient(90deg, #eee, #f7f7f7, #eee); border-radius:8px; }
-  .sk-gap{ height:10px; }
-</style>
+    /* List / rows */
+    #list{ display: grid; gap: var(--gap); padding: var(--gap) var(--pad); }
+
+    .row{
+      border: 1px solid var(--line); border-radius: var(--radius);
+      background: var(--card); box-shadow: var(--shadow);
+      padding: 12px; display: grid; gap: 10px;
+    }
+    @media (min-width: 680px){
+      .row{ grid-template-columns: 1fr auto; grid-template-areas:
+        "left right"
+        "who  who"
+      }
+    }
+    @media (max-width: 679.98px){
+      .row{ grid-template-columns: 1fr; grid-template-areas:
+        "left"
+        "right"
+        "who"
+      }
+    }
+
+    .title{ grid-area: left; display:flex; gap:10px; align-items:center; min-width: 0; }
+    .dot{ width: 10px; height: 10px; border-radius: 50%; background: var(--ok); border:1px solid color-mix(in oklab, var(--fg) 12%, transparent); }
+    .dot.red{ background: var(--err); }
+    .dot.green{ background: var(--ok); }
+    .ttl{ font-size: var(--t1); font-weight: 600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    .actions{ grid-area: right; display:flex; gap:10px; align-items:center; justify-content:flex-end; flex-wrap: wrap; }
+
+    .seg{
+      display:flex; border:1px solid var(--line); border-radius: 999px; overflow:hidden; background: #fff;
+    }
+    .seg .seg-btn{
+      appearance:none; border:none; background:transparent; padding:12px 14px; font-size:var(--t1);
+      cursor:pointer; min-width: 120px; text-align:center;
+    }
+    @media (max-width:560px){ .seg{ width:100%; } .seg .seg-btn{ flex:1; min-width:auto; } }
+    .seg .seg-btn + .seg-btn{ border-left:1px solid var(--line); }
+    .seg .danger{ color:var(--err); font-weight:600; }
+    .seg .ok{ color:var(--ok); font-weight:600; }
+
+    /* Pin */
+    .pin{
+      background:transparent; border:1px dashed var(--line); padding:8px 10px; border-radius:10px; font-size:var(--t2);
+    }
+    .pinned{ border-color: var(--ok); }
+
+    /* Check-ins */
+    .who-line{ grid-area: who; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .chips{
+      display:flex; gap:6px; flex-wrap:wrap; align-items:center; max-width:100%;
+    }
+    .chip{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:6px 8px; border-radius:999px; background:var(--card);
+      border:1px solid var(--line); font-size:var(--t2); line-height:1; white-space:nowrap;
+      color:var(--chip-fg);
+    }
+    .chip-badge{ font-weight:700; }
+    .me{ border-color: color-mix(in oklab, var(--ok) 40%, var(--line)); background: color-mix(in oklab, var(--ok) 12%, var(--card)); }
+    .check-btn{
+      padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+      background:var(--tap); font-size:var(--t2);
+    }
+    .check-btn.primary{ background: var(--ok); color:#fff; border-color: var(--ok); }
+    .check-btn.ghost{ background: transparent; }
+
+    .footer-note{ color:var(--muted); font-size:var(--t2); padding: 0 var(--pad); margin: 6px 0 10px; }
+    .msg { padding: 8px var(--pad) max(8px, env(safe-area-inset-bottom)); }
+    .ok-t{ color:var(--ok); } .err-t{ color:var(--err); }
+
+    /* Skeleton */
+    .skeleton{ border:1px solid var(--line); border-radius: var(--radius); padding:12px; background: var(--card); position:relative; overflow:hidden; }
+    .sk-line{ height:14px; background:linear-gradient(90deg, #eee, #f7f7f7, #eee); border-radius:8px; }
+    .sk-gap{ height:10px; }
+  </style>
 </head>
 <body>
   <div class="wrap">
@@ -89,7 +144,6 @@
     <div class="topbar">
       <div class="topbar-inner">
         <h1>Онлайн-статуси</h1>
-        <p class="note">Зміни миттєво розлітаються всім відкритим екранам. Для “ШУХЕР” утримуй 0.5 сек і введи пароль. Є пошук і закріплення секцій 👇</p>
         <p class="note">Зміни миттєво розлітаються всім відкритим екранам. Для “ШУХЕР” введи пароль. Є пошук і закріплення секцій 👇</p>
 
         <div class="controls">
@@ -125,7 +179,6 @@
     const map = (k, def) => p[k] || def;
     const textColor = map('text_color', '#111111');
     document.documentElement.style.setProperty('--bg',    map('bg_color', '#ffffff'));
-    document.documentElement.style.setProperty('--fg',    map('text_color', '#111111'));
     document.documentElement.style.setProperty('--fg',    textColor);
     document.documentElement.style.setProperty('--muted', map('hint_color', '#6b7280'));
     document.documentElement.style.setProperty('--line',  map('section_separator_color', '#ececec'));
@@ -181,8 +234,9 @@
   try {
     const u = tg?.initDataUnsafe?.user;
     if (u) {
-@@ -213,91 +243,85 @@
-      elName.value = full || u.username || '';
+      const first = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+      const full = first || u.username || '';
+      elName.value = full;
     }
   } catch {}
   elName.value = localStorage.getItem('status_name') || elName.value || '';
@@ -205,7 +259,7 @@
   // DATA STATE
   let presentMap = new Map(); // code -> Set(names)
   let pinned = new Set(JSON.parse(localStorage.getItem('pinned_codes')||'[]'));
-  let lastItems = [];
+  let lastSections = []; // cached sections rows
   const me = ()=> (elName.value || '').trim();
   const STATUS_COOLDOWN_MS = 2500;
   const statusCooldowns = new Map();
@@ -242,16 +296,8 @@
     return chips;
   }
   function extractErr(e, json){ return json?.error || json?.message || e?.message || 'Помилка'; }
-  function longPress(el, cb, holdMs=500){
-    let t, down=false;
-    const clear = ()=>{ down=false; clearTimeout(t); };
-    el.addEventListener('touchstart', ()=>{down=true; t=setTimeout(()=>{ if(down) cb(); }, holdMs);},{passive:true});
-    el.addEventListener('touchend', clear); el.addEventListener('touchcancel', clear);
-    el.addEventListener('mousedown', ()=>{down=true; t=setTimeout(()=>{ if(down) cb(); }, holdMs);});
-    el.addEventListener('mouseup', clear); el.addEventListener('mouseleave', clear);
-  }
+
   async function withLoading(elOrFnArea, fn){
-    // elOrFnArea: кнопка або контейнер сегмента
     const el = elOrFnArea;
     let prevText;
     if (el instanceof HTMLElement) {
@@ -267,14 +313,71 @@
     }
   }
 
+  // UI msg
+  let msgTimer;
+  function show(text, isErr=false){
+    clearTimeout(msgTimer);
+    elMsg.textContent = text;
+    elMsg.className = 'footer-note msg ' + (isErr ? 'err-t' : 'ok-t');
+    msgTimer = setTimeout(()=> { elMsg.textContent=''; elMsg.className='footer-note msg'; }, 2800);
+  }
+
   // Load sections + check-ins
   async function load() {
+    // skeleton
+    elList.innerHTML = `
+      <div class="skeleton a-fade"><div class="sk-line" style="width:60%"></div><div class="sk-gap"></div><div class="sk-line" style="width:40%"></div></div>
+      <div class="skeleton a-fade"><div class="sk-line" style="width:72%"></div><div class="sk-gap"></div><div class="sk-line" style="width:35%"></div></div>
+    `;
+
     const [sections, checkins] = await Promise.all([
       supabase.from('sections').select('*').order('code', { ascending: true }),
       supabase.from('checkins').select('code,name,active').eq('active', true)
     ]);
 
     if (sections.error) { show(`Помилка завантаження: ${sections.error.message}`, true); return; }
+    if (checkins.error) { show(`Помилка завантаження відміток: ${checkins.error.message}`, true); return; }
+
+    // Build present map
+    presentMap = new Map();
+    for (const row of checkins.data || []) {
+      if (!row.active) continue;
+      const set = presentMap.get(row.code) || new Set();
+      if (row.name) set.add(row.name);
+      presentMap.set(row.code, set);
+    }
+
+    lastSections = sections.data || [];
+    render();
+  }
+
+  // Render list using cached lastSections + presentMap + search + pinned
+  function render(){
+    const q = (elSearch.value || '').trim().toLowerCase();
+    let items = lastSections.slice();
+
+    if (q) {
+      items = items.filter(it => {
+        const s1 = `${it.code} ${it.title}`.toLowerCase();
+        return s1.includes(q);
+      });
+    }
+
+    // Sort by pinned first, then by code asc (already asc), but stable
+    items.sort((a,b)=>{
+      const ap = pinned.has(a.code) ? 0 : 1;
+      const bp = pinned.has(b.code) ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+      return 0;
+    });
+
+    elList.innerHTML = '';
+    items.forEach(it => {
+      const code = it.code;
+      const ppl = Array.from(presentMap.get(code) || []).sort((a,b)=>a.localeCompare(b, 'uk'));
+      const iAmHere = ppl.includes(me());
+
+      const row = document.createElement('div');
       row.className = 'row a-fade';
 
       // left: title
@@ -300,8 +403,6 @@
       bRed.type = 'button';
       bRed.textContent = 'ШУХЕР';
       bRed.setAttribute('aria-label', `Увімкнути червоний для ${it.code}`);
-      // long-press!
-      longPress(bRed, () => changeStatus(code, 'red', dot, seg));
       bRed.dataset.status = 'red';
       bRed.disabled = it.status === 'red';
       bRed.onclick = () => changeStatus(code, 'red', dot, seg);
@@ -345,6 +446,10 @@
       row.appendChild(whoLine);
       elList.appendChild(row);
     });
+
+    if (!items.length) {
+      elList.innerHTML = `<div class="footer-note" style="padding:12px var(--pad);">Нічого не знайдено за запитом.</div>`;
+    }
   }
 
   // Status change (with optimistic dot + loading on seg)
@@ -419,5 +524,50 @@
       if (!res.ok) throw new Error(extractErr(null, json));
       show(present ? 'Відмічено ✅' : 'Вихід ✅');
       tg?.HapticFeedback?.impactOccurred?.('light');
+      // Refresh presence quickly
+      debouncedReload();
     } catch (e) {
       show('Помилка відмітки: ' + extractErr(e), true);
+      tg?.HapticFeedback?.notificationOccurred?.('error');
+    }
+  }
+
+  // Pin/unpin
+  function togglePin(code){
+    if (pinned.has(code)) pinned.delete(code); else pinned.add(code);
+    localStorage.setItem('pinned_codes', JSON.stringify(Array.from(pinned)));
+    render();
+  }
+
+  // Search
+  elSearch.addEventListener('input', debounce(render, 120));
+
+  // Manual refresh
+  btnRefresh.addEventListener('click', () => load());
+
+  // Enter on password hides keyboard in mobile Telegram after 5 chars
+  elPass.addEventListener('input', () => {
+    if (elPass.value.length >= elPass.maxLength) {
+      elPass.blur?.();
+    }
+  });
+
+  // Realtime updates
+  try {
+    supabase
+      .channel('statuses-sections')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sections' }, () => debouncedReload())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checkins' }, () => debouncedReload())
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // no-op
+        }
+      });
+  } catch {}
+
+  // Initial
+  load();
+  window.addEventListener('focus', debouncedReload);
+</script>
+</body>
+</html>
