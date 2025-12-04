@@ -15,7 +15,7 @@
         [class.active]="mode() === 'login'"
         (click)="switchMode('login')"
         role="tab"
-        aria-selected="mode() === 'login'"
+        [attr.aria-selected]="mode() === 'login'"
       >
         Login
       </button>
@@ -25,11 +25,13 @@
         [class.active]="mode() === 'signup'"
         (click)="switchMode('signup')"
         role="tab"
-        aria-selected="mode() === 'signup'"
+        [attr.aria-selected]="mode() === 'signup'"
       >
         Create account
       </button>
     </div>
+
+    <p class="mobile-intro">Quick entry on mobile—fields stack for easier thumb reach.</p>
 
     <form class="auth-form" [formGroup]="authForm" (ngSubmit)="submit()" novalidate>
       <div class="form-grid">
