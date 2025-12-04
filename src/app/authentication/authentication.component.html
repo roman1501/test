@@ -1,0 +1,104 @@
+<section class="auth-page">
+  <div class="background-glow"></div>
+  <div class="background-grid"></div>
+  <div class="auth-card">
+    <div class="card-header">
+      <div class="badge">Secure access</div>
+      <h1>{{ highlightText() }}</h1>
+      <p>Use your credentials to sign in or create a new account. No backend is connected yet.</p>
+    </div>
+
+    <div class="mode-toggle" role="tablist">
+      <button
+        type="button"
+        class="mode-button"
+        [class.active]="mode() === 'login'"
+        (click)="switchMode('login')"
+        role="tab"
+        [attr.aria-selected]="mode() === 'login'"
+      >
+        Login
+      </button>
+      <button
+        type="button"
+        class="mode-button"
+        [class.active]="mode() === 'signup'"
+        (click)="switchMode('signup')"
+        role="tab"
+        [attr.aria-selected]="mode() === 'signup'"
+      >
+        Create account
+      </button>
+    </div>
+
+    <p class="mobile-intro">Quick entry on mobile—fields stack for easier thumb reach.</p>
+
+    <form class="auth-form" [formGroup]="authForm" (ngSubmit)="submit()" novalidate>
+      <div class="form-grid">
+        <label class="input-field" *ngIf="showControl('fullName')">
+          <span>Full name</span>
+          <input type="text" placeholder="Jordan Avery" formControlName="fullName" />
+          <small class="error" *ngIf="authForm.controls.fullName.invalid && authForm.controls.fullName.touched">
+            Your name helps us personalise your account.
+          </small>
+        </label>
+
+        <label class="input-field">
+          <span>Email address</span>
+          <input type="email" placeholder="you@example.com" formControlName="email" />
+          <small class="error" *ngIf="authForm.controls.email.invalid && authForm.controls.email.touched">
+            Enter a valid email so we can reach you.
+          </small>
+        </label>
+
+        <label class="input-field">
+          <span>Password</span>
+          <input type="password" placeholder="••••••••" formControlName="password" />
+          <div class="input-hint">
+            <small>At least 8 characters</small>
+          </div>
+          <small class="error" *ngIf="authForm.controls.password.invalid && authForm.controls.password.touched">
+            Add a strong password with 8+ characters.
+          </small>
+        </label>
+
+        <label class="input-field" *ngIf="showControl('confirmPassword')">
+          <span>Confirm password</span>
+          <input type="password" placeholder="Re-enter your password" formControlName="confirmPassword" />
+          <small
+            class="error"
+            *ngIf="authForm.controls.confirmPassword.invalid && authForm.controls.confirmPassword.touched"
+          >
+            {{
+              authForm.controls.confirmPassword.hasError('mismatch')
+                ? 'Passwords need to match.'
+                : 'Please confirm your password to continue.'
+            }}
+          </small>
+        </label>
+      </div>
+
+      <div class="actions">
+        <label class="remember">
+          <input type="checkbox" />
+          Remember this device
+        </label>
+        <button class="primary" type="submit">{{ mode() === 'login' ? 'Login' : 'Create account' }}</button>
+      </div>
+    </form>
+
+    <div class="secondary-actions">
+      <button type="button" class="ghost">Use single sign-on</button>
+      <button type="button" class="ghost">Forgot password?</button>
+    </div>
+
+    <div class="benefits">
+      <h2>Why create an account?</h2>
+      <ul>
+        <li *ngFor="let benefit of benefitList">{{ benefit }}</li>
+      </ul>
+    </div>
+
+    <p class="success" *ngIf="successMessage">{{ successMessage }}</p>
+  </div>
+</section>
