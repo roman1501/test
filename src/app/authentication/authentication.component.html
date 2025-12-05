@@ -3,9 +3,9 @@
   <div class="background-grid"></div>
   <div class="auth-card">
     <div class="card-header">
-      <div class="badge">Secure access</div>
+      <div class="badge">Безпека даних</div>
       <h1>{{ highlightText() }}</h1>
-      <p>Use your credentials to sign in or create a new account. No backend is connected yet.</p>
+      <p>Дизайн-екран без бекенду: для входу потрібен ключ доступу, для реєстрації — повні дані.</p>
     </div>
 
     <div class="mode-toggle" role="tablist">
@@ -17,7 +17,7 @@
         role="tab"
         [attr.aria-selected]="mode() === 'login'"
       >
-        Login
+        Вхід
       </button>
       <button
         type="button"
@@ -27,53 +27,56 @@
         role="tab"
         [attr.aria-selected]="mode() === 'signup'"
       >
-        Create account
+        Реєстрація
       </button>
     </div>
 
-    <p class="mobile-intro">Quick entry on mobile—fields stack for easier thumb reach.</p>
+    <p class="mobile-intro">Стиснена мобільна форма: усі поля й примітки видно одразу.</p>
 
     <form class="auth-form" [formGroup]="authForm" (ngSubmit)="submit()" novalidate>
       <div class="form-grid">
         <label class="input-field" *ngIf="showControl('fullName')">
-          <span>Full name</span>
-          <input type="text" placeholder="Jordan Avery" formControlName="fullName" />
+          <span>Справжнє ім'я українською</span>
+          <input type="text" placeholder="Напр., Олена Шевченко" formControlName="fullName" />
           <small class="error" *ngIf="authForm.controls.fullName.invalid && authForm.controls.fullName.touched">
-            Your name helps us personalise your account.
+            Використовуйте українські літери та пробіли.
           </small>
         </label>
 
         <label class="input-field">
-          <span>Email address</span>
-          <input type="email" placeholder="you@example.com" formControlName="email" />
-          <small class="error" *ngIf="authForm.controls.email.invalid && authForm.controls.email.touched">
-            Enter a valid email so we can reach you.
-          </small>
-        </label>
-
-        <label class="input-field">
-          <span>Password</span>
+          <span>{{ mode() === 'login' ? 'Ключ доступу' : 'Пароль' }}</span>
           <input type="password" placeholder="••••••••" formControlName="password" />
           <div class="input-hint">
-            <small>At least 8 characters</small>
+            <small>Мінімум 8 символів</small>
           </div>
           <small class="error" *ngIf="authForm.controls.password.invalid && authForm.controls.password.touched">
-            Add a strong password with 8+ characters.
+            Додайте надійний пароль (8+ символів).
           </small>
         </label>
 
         <label class="input-field" *ngIf="showControl('confirmPassword')">
-          <span>Confirm password</span>
-          <input type="password" placeholder="Re-enter your password" formControlName="confirmPassword" />
+          <span>Повторіть пароль</span>
+          <input type="password" placeholder="Введіть пароль ще раз" formControlName="confirmPassword" />
           <small
             class="error"
             *ngIf="authForm.controls.confirmPassword.invalid && authForm.controls.confirmPassword.touched"
           >
             {{
               authForm.controls.confirmPassword.hasError('mismatch')
-                ? 'Passwords need to match.'
-                : 'Please confirm your password to continue.'
+                ? 'Паролі мають збігатися.'
+                : 'Підтвердіть пароль, щоб продовжити.'
             }}
+          </small>
+        </label>
+
+        <label class="input-field" *ngIf="showControl('facePhoto')">
+          <span>Фото обличчя</span>
+          <input type="file" accept="image/*" (change)="handleFile($event)" />
+          <div class="input-hint">
+            <small>На фото має бути чітко видно лице спереду.</small>
+          </div>
+          <small class="error" *ngIf="authForm.controls.facePhoto.invalid && authForm.controls.facePhoto.touched">
+            Додайте зображення з відкритим обличчям.
           </small>
         </label>
       </div>
@@ -81,19 +84,19 @@
       <div class="actions">
         <label class="remember">
           <input type="checkbox" />
-          Remember this device
+          Запам'ятати цей пристрій
         </label>
-        <button class="primary" type="submit">{{ mode() === 'login' ? 'Login' : 'Create account' }}</button>
+        <button class="primary" type="submit">{{ mode() === 'login' ? 'Увійти' : 'Зареєструватися' }}</button>
       </div>
     </form>
 
     <div class="secondary-actions">
-      <button type="button" class="ghost">Use single sign-on</button>
-      <button type="button" class="ghost">Forgot password?</button>
+      <button type="button" class="ghost">Вхід через SSO (макет)</button>
+      <button type="button" class="ghost">Забули ключ?</button>
     </div>
 
     <div class="benefits">
-      <h2>Why create an account?</h2>
+      <h2>Навіщо створювати акаунт?</h2>
       <ul>
         <li *ngFor="let benefit of benefitList">{{ benefit }}</li>
       </ul>

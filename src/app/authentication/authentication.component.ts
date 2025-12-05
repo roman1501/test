@@ -12,21 +12,21 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 export class AuthenticationComponent {
   protected readonly mode = signal<'login' | 'signup'>('login');
   protected readonly highlightText = computed(() =>
-    this.mode() === 'login' ? 'Welcome back' : 'Join our community'
+    this.mode() === 'login' ? 'Повернення до доступу' : 'Нова безпечна реєстрація'
   );
   private readonly formBuilder = inject(FormBuilder);
 
   protected readonly authForm = this.formBuilder.group({
     fullName: this.formBuilder.control('', []),
-    email: this.formBuilder.control('', [Validators.required, Validators.email]),
     password: this.formBuilder.control('', [Validators.required, Validators.minLength(8)]),
-    confirmPassword: this.formBuilder.control('', [])
+    confirmPassword: this.formBuilder.control('', []),
+    facePhoto: this.formBuilder.control<File | null>(null, [])
   });
 
   protected readonly benefitList = [
-    'Track your projects in one place',
-    'Keep your account secure',
-    'Switch devices without losing progress'
+    'Робіть запити на доступ без паперів',
+    'Маєте контроль за ключем у будь-який момент',
+    'Можете підготувати дані і завершити пізніше'
   ];
 
   protected successMessage = '';
@@ -36,16 +36,22 @@ export class AuthenticationComponent {
     this.successMessage = '';
 
     if (newMode === 'signup') {
-      this.authForm.controls.fullName.addValidators(Validators.required);
-      this.authForm.controls.confirmPassword.addValidators(Validators.required);
+      this.authForm.controls.fullName.setValidators([
+        Validators.required,
+        Validators.pattern(/^[А-ЩЬЮЯЇІЄҐа-щьюяїієґ\s'-]+$/)
+      ]);
+      this.authForm.controls.confirmPassword.setValidators(Validators.required);
+      this.authForm.controls.facePhoto.setValidators(Validators.required);
     } else {
-      this.authForm.controls.fullName.removeValidators(Validators.required);
-      this.authForm.controls.confirmPassword.removeValidators(Validators.required);
+      this.authForm.controls.fullName.clearValidators();
+      this.authForm.controls.confirmPassword.clearValidators();
       this.authForm.controls.confirmPassword.setErrors(null);
+      this.authForm.controls.facePhoto.clearValidators();
     }
 
     this.authForm.controls.fullName.updateValueAndValidity({ emitEvent: false });
     this.authForm.controls.confirmPassword.updateValueAndValidity({ emitEvent: false });
+    this.authForm.controls.facePhoto.updateValueAndValidity({ emitEvent: false });
   }
 
   protected submit(): void {
@@ -64,11 +70,18 @@ export class AuthenticationComponent {
 
     this.successMessage =
       this.mode() === 'login'
-        ? 'You are signed in. No backend is wired up yet, but the UI is ready.'
-        : 'Account created in design mode. Hook this up to your backend when ready.';
+        ? 'Вхід за ключем виконано (UI-демо без бекенду).'
+        : 'Заявка на створення акаунту збережена у демонстраційному режимі.';
   }
 
-  protected showControl(controlName: 'fullName' | 'confirmPassword'): boolean {
+  protected showControl(controlName: 'fullName' | 'confirmPassword' | 'facePhoto'): boolean {
     return this.mode() === 'signup';
+  }
+
+  protected handleFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.item(0) ?? null;
+    this.authForm.controls.facePhoto.setValue(file);
+    this.authForm.controls.facePhoto.markAsTouched();
   }
 }
