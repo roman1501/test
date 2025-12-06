@@ -39,7 +39,7 @@ export class AuthenticationComponent {
 
   // URL до Edge Function request-access
   private readonly REQUEST_ACCESS_URL =
-    'https://ТВІЙ_PROJECT_ID.functions.supabase.co/request-access'; // 👈 підстав свій URL
+    'https://ewjvqlvzbiighbajjusg.supabase.co/functions/v1/request-access'; // 👈 підстав свій URL
 
   protected switchMode(newMode: 'login' | 'signup'): void {
     this.mode.set(newMode);
