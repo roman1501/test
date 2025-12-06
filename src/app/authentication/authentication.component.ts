@@ -146,22 +146,27 @@ if (facePhoto) {
 
     // 2) Надсилаємо заявку в Edge Function request-access
     try {
-      const resp = await fetch(this.REQUEST_ACCESS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          telegram_user_id: telegramUserId,
-          full_name: fullName,
-          access_key: password,
-          face_photo_url: facePhotoUrl
-        })
-      });
+const response = await fetch(this.REQUEST_ACCESS_URL, {
+  method: 'POST',
+  headers: {
+    // 👇 це головне — робимо простий Content-Type
+    'Content-Type': 'text/plain',
+  },
+  body: JSON.stringify({
+    telegram_user_id: telegramUserId,
+    full_name: fullName,
+    access_key: password,
+    face_photo_url: facePhotoUrl,
+  }),
+});
 
-      if (!resp.ok) {
-        console.error(await resp.text());
-        this.errorMessage = 'Помилка надсилання заявки адміністратору.';
-        return;
-      }
+if (!response.ok) {
+  const text = await response.text().catch(() => '');
+  console.error('request-access error', response.status, text);
+  this.errorMessage = 'Помилка надсилання заявки адміністратору.';
+  return;
+}
+
 
       this.successMessage = 'Заявку відправлено адміністратору в Telegram для підтвердження.';
     } catch (e) {
