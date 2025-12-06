@@ -1,0 +1,52 @@
+<section class="status-page">
+  <div class="background-glow"></div>
+  <div class="background-grid"></div>
+
+  <div class="status-card">
+    <header class="status-header">
+      <div class="badge" [ngClass]="status()">
+        @if (status() === 'signup_pending' || status() === 'pending') {
+          <span>Очікує підтвердження</span>
+        } @else if (status() === 'approved') {
+          <span>Доступ дозволено</span>
+        } @else if (status() === 'rejected') {
+          <span>Доступ відхилено</span>
+        }
+      </div>
+
+      <h1>{{ title() }}</h1>
+
+      <p class="subtitle">
+        {{ description() }}
+      </p>
+    </header>
+
+    <section class="profile-summary" *ngIf="fullName() || telegramUserId()">
+      <h2>Ваші дані</h2>
+      <ul>
+        <li *ngIf="fullName()"><strong>Імʼя:</strong> {{ fullName() }}</li>
+        <li *ngIf="telegramUserId()">
+          <strong>Telegram ID:</strong> {{ telegramUserId() }}
+        </li>
+      </ul>
+    </section>
+
+    <section class="admin-contact">
+      <h2>Звʼязок з адміністратором</h2>
+      <p>
+        Якщо ви вважаєте, що виникла помилка або процес затягнувся —
+        напишіть адміну в Telegram.
+      </p>
+
+      <a class="tg-button" [href]="adminTelegramLink" target="_blank" rel="noopener noreferrer">
+        Написати адміну в Telegram (@{{ adminTelegramUsername }})
+      </a>
+    </section>
+
+    <div class="actions">
+      <button type="button" class="ghost" (click)="goBackToAuth()">
+        Повернутися до входу
+      </button>
+    </div>
+  </div>
+</section>
