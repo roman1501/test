@@ -9,8 +9,8 @@ type StatusType = 'pending' | 'approved' | 'rejected' | 'none';
   selector: 'app-access-status',
   standalone: true,
   imports: [CommonModule, RouterModule],
-  templateUrl: './access-status.component.html',
-  styleUrl: './access-status.component.scss',
+  templateUrl: './access-status.html',
+  styleUrl: './access-status.scss',
 })
 export class AccessStatusComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);

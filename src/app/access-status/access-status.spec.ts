@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { AccessStatus } from './access-status';
+import { AccessStatusComponent } from './access-status';
 
 describe('AccessStatus', () => {
-  let component: AccessStatus;
-  let fixture: ComponentFixture<AccessStatus>;
+  let component: AccessStatusComponent;
+  let fixture: ComponentFixture<AccessStatusComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AccessStatus]
+      imports: [AccessStatusComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(AccessStatus);
+    fixture = TestBed.createComponent(AccessStatusComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });
