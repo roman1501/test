@@ -116,27 +116,33 @@ export class AuthenticationComponent {
     // 1) Завантажуємо фото в Supabase Storage (faces-bucket)
     let facePhotoUrl: string | null = null;
 
-    if (facePhoto) {
-      const file = facePhoto as File;
-      const filePath = `faces/${crypto.randomUUID()}-${file.name}`;
+if (facePhoto) {
+  const file = facePhoto as File;
 
-      const { error: uploadError } = await supabase.storage
-        .from('faces-bucket')
-        .upload(filePath, file);
+  // беремо розширення (png, jpg, jpeg і т.д.)
+  const ext = file.name.split('.').pop() || 'png';
 
-      if (uploadError) {
-        console.error(uploadError);
-        this.errorMessage = 'Помилка завантаження фото.';
-        return;
-      }
+  // формуємо "чистий" шлях: тільки латиниця, цифри, дефіс і крапка
+  const filePath = `faces/${crypto.randomUUID()}.${ext}`;
 
-      const { data: publicUrlData } = supabase
-        .storage
-        .from('faces-bucket')
-        .getPublicUrl(filePath);
+  const { error: uploadError } = await supabase.storage
+    .from('faces-bucket')
+    .upload(filePath, file);
 
-      facePhotoUrl = publicUrlData.publicUrl;
-    }
+  if (uploadError) {
+    console.error('Upload error:', uploadError);
+    this.errorMessage = 'Помилка завантаження фото.';
+    return;
+  }
+
+  const { data: publicUrlData } = supabase
+    .storage
+    .from('faces-bucket')
+    .getPublicUrl(filePath);
+
+  facePhotoUrl = publicUrlData.publicUrl;
+}
+
 
     // 2) Надсилаємо заявку в Edge Function request-access
     try {
