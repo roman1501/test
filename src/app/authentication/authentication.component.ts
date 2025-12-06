@@ -3,7 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { supabase } from '../supabase.client';
-
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3anZxbHZ6YmlpZ2hiYWpqdXNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMTQ2ODYsImV4cCI6MjA4MDU5MDY4Nn0.eWM1cw2VXPUnlce477vmleIr6A_2RAayk9m9ZlaPbxQ';
 @Component({
   selector: 'app-authentication',
   standalone: true,
@@ -102,71 +102,76 @@ export class AuthenticationComponent {
     return 521423479; // тимчасово для тестів
   }
 
-  private async handleSignup(): Promise<void> {
-    const telegramUserId = this.getTelegramUserId();
+private async handleSignup(): Promise<void> {
+  const telegramUserId = this.getTelegramUserId();
 
-    if (!telegramUserId) {
-      this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
+  if (!telegramUserId) {
+    this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
+    return;
+  }
+
+  const { fullName, password, facePhoto } = this.authForm.value;
+
+  let facePhotoUrl: string | null = null;
+
+  // 1) Завантажуємо фото в Storage
+  if (facePhoto) {
+    const file = facePhoto as File;
+    const ext = file.name.split('.').pop() || 'png';
+    const filePath = `faces/${crypto.randomUUID()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('faces-bucket')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      this.errorMessage = 'Помилка завантаження фото.';
       return;
     }
 
-    const { fullName, password, facePhoto } = this.authForm.value;
+    const { data: publicUrlData } = supabase
+      .storage
+      .from('faces-bucket')
+      .getPublicUrl(filePath);
 
-    let facePhotoUrl: string | null = null;
-
-    if (facePhoto) {
-      const file = facePhoto as File;
-      const ext = file.name.split('.').pop() || 'png';
-      const filePath = `faces/${crypto.randomUUID()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('faces-bucket')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        this.errorMessage = 'Помилка завантаження фото.';
-        return;
-      }
-
-      const { data: publicUrlData } = supabase
-        .storage
-        .from('faces-bucket')
-        .getPublicUrl(filePath);
-
-      facePhotoUrl = publicUrlData.publicUrl;
-    }
-
-    try {
-      const response = await fetch(this.REQUEST_ACCESS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain',
-        },
-        body: JSON.stringify({
-          telegram_user_id: telegramUserId,
-          full_name: fullName,
-          access_key: password,
-          face_photo_url: facePhotoUrl,
-        }),
-      });
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => '');
-        console.error('request-access error', response.status, text);
-        this.errorMessage = 'Помилка надсилання заявки адміністратору.';
-        return;
-      }
-
-      // 🔥 Замість тексту на цій же сторінці — кидаємо на /access-status
-      this.router.navigate(['/access-status'], {
-        queryParams: { status: 'created' },
-      });
-    } catch (e) {
-      console.error(e);
-      this.errorMessage = 'Сталася помилка при підключенні до сервера.';
-    }
+    facePhotoUrl = publicUrlData.publicUrl;
   }
+
+  // 2) Виклик Edge Function request-access
+  try {
+    const response = await fetch(this.REQUEST_ACCESS_URL, {
+      method: 'POST',
+      headers: {
+        // 👇 обовʼязково
+        'Content-Type': 'text/plain', // JSON всередині, але простий header
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        telegram_user_id: telegramUserId,
+        full_name: fullName,
+        access_key: password,
+        face_photo_url: facePhotoUrl,
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      console.error('request-access error', response.status, text);
+      this.errorMessage = 'Помилка надсилання заявки адміністратору.';
+      return;
+    }
+
+    // ✅ після успішної заявки — на екран статусу
+    this.router.navigate(['/access-status'], {
+      queryParams: { status: 'created' },
+    });
+  } catch (e) {
+    console.error(e);
+    this.errorMessage = 'Сталася помилка при підключенні до сервера.';
+  }
+}
 
   private async handleLogin(): Promise<void> {
     const telegramUserId = this.getTelegramUserId();
