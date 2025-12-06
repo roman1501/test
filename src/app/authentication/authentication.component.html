@@ -5,7 +5,9 @@
     <div class="card-header">
       <div class="badge">Безпека даних</div>
       <h1>{{ highlightText() }}</h1>
-      <p>Дизайн-екран без бекенду: для входу потрібен ключ доступу, для реєстрації — повні дані.</p>
+      <p>
+        Вхід за ключем доступу, реєстрація — з підтвердженням через ваш Telegram-акаунт.
+      </p>
     </div>
 
     <div class="mode-toggle" role="tablist">
@@ -31,7 +33,9 @@
       </button>
     </div>
 
-    <p class="mobile-intro">Стиснена мобільна форма: усі поля й примітки видно одразу.</p>
+    <p class="mobile-intro">
+      Для реєстрації введіть справжнє ім’я, ключ доступу та завантажте чітке фото обличчя.
+    </p>
 
     <form class="auth-form" [formGroup]="authForm" (ngSubmit)="submit()" novalidate>
       <div class="form-grid">
@@ -44,27 +48,27 @@
         </label>
 
         <label class="input-field">
-          <span>{{ mode() === 'login' ? 'Ключ доступу' : 'Пароль' }}</span>
+          <span>{{ mode() === 'login' ? 'Ключ доступу' : 'Ключ доступу / пароль' }}</span>
           <input type="password" placeholder="••••••••" formControlName="password" />
           <div class="input-hint">
             <small>Мінімум 8 символів</small>
           </div>
           <small class="error" *ngIf="authForm.controls.password.invalid && authForm.controls.password.touched">
-            Додайте надійний пароль (8+ символів).
+            Додайте надійний ключ (8+ символів).
           </small>
         </label>
 
         <label class="input-field" *ngIf="showControl('confirmPassword')">
-          <span>Повторіть пароль</span>
-          <input type="password" placeholder="Введіть пароль ще раз" formControlName="confirmPassword" />
+          <span>Повторіть ключ / пароль</span>
+          <input type="password" placeholder="Введіть ще раз" formControlName="confirmPassword" />
           <small
             class="error"
             *ngIf="authForm.controls.confirmPassword.invalid && authForm.controls.confirmPassword.touched"
           >
             {{
               authForm.controls.confirmPassword.hasError('mismatch')
-                ? 'Паролі мають збігатися.'
-                : 'Підтвердіть пароль, щоб продовжити.'
+                ? 'Значення мають збігатися.'
+                : 'Підтвердіть ключ, щоб продовжити.'
             }}
           </small>
         </label>
@@ -73,7 +77,7 @@
           <span>Фото обличчя</span>
           <input type="file" accept="image/*" (change)="handleFile($event)" />
           <div class="input-hint">
-            <small>На фото має бути чітко видно лице спереду.</small>
+            <small>Обличчя має бути чітко видно спереду.</small>
           </div>
           <small class="error" *ngIf="authForm.controls.facePhoto.invalid && authForm.controls.facePhoto.touched">
             Додайте зображення з відкритим обличчям.
@@ -82,16 +86,13 @@
       </div>
 
       <div class="actions">
-        <label class="remember">
-          <input type="checkbox" />
-          Запам'ятати цей пристрій
-        </label>
-        <button class="primary" type="submit">{{ mode() === 'login' ? 'Увійти' : 'Зареєструватися' }}</button>
+        <button class="primary" type="submit" [disabled]="isSubmitting">
+          {{ mode() === 'login' ? 'Увійти' : 'Надіслати заявку' }}
+        </button>
       </div>
     </form>
 
-    <div class="secondary-actions">
-      <button type="button" class="ghost">Вхід через SSO (макет)</button>
+    <div class="secondary-actions" *ngIf="mode() === 'login'">
       <button type="button" class="ghost">Забули ключ?</button>
     </div>
 
@@ -103,5 +104,6 @@
     </div>
 
     <p class="success" *ngIf="successMessage">{{ successMessage }}</p>
+    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
   </div>
 </section>

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { supabase } from '../supabase.client'; // 👈 перевір шлях
 
 @Component({
   selector: 'app-authentication',
@@ -10,10 +11,13 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
   styleUrl: './authentication.component.scss'
 })
 export class AuthenticationComponent {
+  // login / signup режим
   protected readonly mode = signal<'login' | 'signup'>('login');
+
   protected readonly highlightText = computed(() =>
     this.mode() === 'login' ? 'Повернення до доступу' : 'Нова безпечна реєстрація'
   );
+
   private readonly formBuilder = inject(FormBuilder);
 
   protected readonly authForm = this.formBuilder.group({
@@ -25,15 +29,22 @@ export class AuthenticationComponent {
 
   protected readonly benefitList = [
     'Робіть запити на доступ без паперів',
-    'Маєте контроль за ключем у будь-який момент',
+    'Підтвердження через ваш Telegram-акаунт',
     'Можете підготувати дані і завершити пізніше'
   ];
 
   protected successMessage = '';
+  protected errorMessage = '';
+  protected isSubmitting = false;
+
+  // URL до Edge Function request-access
+  private readonly REQUEST_ACCESS_URL =
+    'https://ТВІЙ_PROJECT_ID.functions.supabase.co/request-access'; // 👈 підстав свій URL
 
   protected switchMode(newMode: 'login' | 'signup'): void {
     this.mode.set(newMode);
     this.successMessage = '';
+    this.errorMessage = '';
 
     if (newMode === 'signup') {
       this.authForm.controls.fullName.setValidators([
@@ -54,8 +65,10 @@ export class AuthenticationComponent {
     this.authForm.controls.facePhoto.updateValueAndValidity({ emitEvent: false });
   }
 
-  protected submit(): void {
+  protected async submit(): Promise<void> {
     this.authForm.markAllAsTouched();
+    this.successMessage = '';
+    this.errorMessage = '';
 
     if (
       this.mode() === 'signup' &&
@@ -68,10 +81,123 @@ export class AuthenticationComponent {
       return;
     }
 
-    this.successMessage =
-      this.mode() === 'login'
-        ? 'Вхід за ключем виконано (UI-демо без бекенду).'
-        : 'Заявка на створення акаунту збережена у демонстраційному режимі.';
+    this.isSubmitting = true;
+    try {
+      if (this.mode() === 'signup') {
+        await this.handleSignup();
+      } else {
+        await this.handleLogin();
+      }
+    } finally {
+      this.isSubmitting = false;
+    }
+  }
+
+  private getTelegramUserId(): number | null {
+    const w = window as any;
+    const tgUser = w?.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (!tgUser || typeof tgUser.id === 'undefined') {
+      return null;
+    }
+    return Number(tgUser.id);
+  }
+
+  private async handleSignup(): Promise<void> {
+    const telegramUserId = this.getTelegramUserId();
+
+    if (!telegramUserId) {
+      this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
+      return;
+    }
+
+    const { fullName, password, facePhoto } = this.authForm.value;
+
+    // 1) Завантажуємо фото в Supabase Storage (faces-bucket)
+    let facePhotoUrl: string | null = null;
+
+    if (facePhoto) {
+      const file = facePhoto as File;
+      const filePath = `faces/${crypto.randomUUID()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('faces-bucket')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error(uploadError);
+        this.errorMessage = 'Помилка завантаження фото.';
+        return;
+      }
+
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('faces-bucket')
+        .getPublicUrl(filePath);
+
+      facePhotoUrl = publicUrlData.publicUrl;
+    }
+
+    // 2) Надсилаємо заявку в Edge Function request-access
+    try {
+      const resp = await fetch(this.REQUEST_ACCESS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegram_user_id: telegramUserId,
+          full_name: fullName,
+          access_key: password,
+          face_photo_url: facePhotoUrl
+        })
+      });
+
+      if (!resp.ok) {
+        console.error(await resp.text());
+        this.errorMessage = 'Помилка надсилання заявки адміністратору.';
+        return;
+      }
+
+      this.successMessage = 'Заявку відправлено адміністратору в Telegram для підтвердження.';
+    } catch (e) {
+      console.error(e);
+      this.errorMessage = 'Сталася помилка при підключенні до сервера.';
+    }
+  }
+
+  private async handleLogin(): Promise<void> {
+    const telegramUserId = this.getTelegramUserId();
+
+    if (!telegramUserId) {
+      this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
+      return;
+    }
+
+    const { password } = this.authForm.value;
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('access_key', password)
+      .eq('telegram_user_id', telegramUserId)
+      .maybeSingle();
+
+    if (error || !profile) {
+      this.errorMessage = 'Невірний ключ доступу або акаунт не знайдено.';
+      return;
+    }
+
+    if (profile.status === 'pending') {
+      this.errorMessage = 'Заявка ще очікує підтвердження адміністратора.';
+      return;
+    }
+
+    if (profile.status === 'rejected') {
+      this.errorMessage = 'Заявку відхилено. Зверніться до адміністратора.';
+      return;
+    }
+
+    // Все добре — доступ дозволено
+    this.successMessage = 'Вхід виконано. Доступ дозволено.';
+    // Тут можеш зберегти щось у localStorage і перейти на інший екран
   }
 
   protected showControl(controlName: 'fullName' | 'confirmPassword' | 'facePhoto'): boolean {
