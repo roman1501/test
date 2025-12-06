@@ -103,77 +103,77 @@ export class AuthenticationComponent {
       return 521423479; 
   }
 
-  private async handleSignup(): Promise<void> {
-    const telegramUserId = this.getTelegramUserId();
+private async handleSignup(): Promise<void> {
+  const telegramUserId = this.getTelegramUserId();
 
-    if (!telegramUserId) {
-      this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
-      return;
-    }
-
-    const { fullName, password, facePhoto } = this.authForm.value;
-
-    // 1) Завантажуємо фото в Supabase Storage (faces-bucket)
-    let facePhotoUrl: string | null = null;
-
-if (facePhoto) {
-  const file = facePhoto as File;
-
-  // беремо розширення (png, jpg, jpeg і т.д.)
-  const ext = file.name.split('.').pop() || 'png';
-
-  // формуємо "чистий" шлях: тільки латиниця, цифри, дефіс і крапка
-  const filePath = `faces/${crypto.randomUUID()}.${ext}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from('faces-bucket')
-    .upload(filePath, file);
-
-  if (uploadError) {
-    console.error('Upload error:', uploadError);
-    this.errorMessage = 'Помилка завантаження фото.';
+  if (!telegramUserId) {
+    this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
     return;
   }
 
-  const { data: publicUrlData } = supabase
-    .storage
-    .from('faces-bucket')
-    .getPublicUrl(filePath);
+  const { fullName, password, facePhoto } = this.authForm.value;
 
-  facePhotoUrl = publicUrlData.publicUrl;
-}
+  const name = (fullName ?? '').toString().trim();
+  const key = (password ?? '').toString();
 
-
-    // 2) Надсилаємо заявку в Edge Function request-access
-    try {
-const response = await fetch(this.REQUEST_ACCESS_URL, {
-  method: 'POST',
-  headers: {
-    // 👇 це головне — робимо простий Content-Type
-    'Content-Type': 'text/plain',
-  },
-  body: JSON.stringify({
-    telegram_user_id: telegramUserId,
-    full_name: fullName,
-    access_key: password,
-    face_photo_url: facePhotoUrl,
-  }),
-});
-
-if (!response.ok) {
-  const text = await response.text().catch(() => '');
-  console.error('request-access error', response.status, text);
-  this.errorMessage = 'Помилка надсилання заявки адміністратору.';
-  return;
-}
-
-
-      this.successMessage = 'Заявку відправлено адміністратору в Telegram для підтвердження.';
-    } catch (e) {
-      console.error(e);
-      this.errorMessage = 'Сталася помилка при підключенні до сервера.';
-    }
+  if (!name || !key) {
+    this.errorMessage = 'Заповніть імʼя та пароль.';
+    return;
   }
+
+  // 1) Завантажуємо фото в Supabase Storage (faces-bucket)
+  let facePhotoUrl: string | null = null;
+
+  if (facePhoto) {
+    const file = facePhoto as File;
+
+    const ext = file.name.split('.').pop() || 'png';
+    const filePath = `faces/${crypto.randomUUID()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('faces-bucket')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      this.errorMessage = 'Помилка завантаження фото.';
+      return;
+    }
+
+    const { data: publicUrlData } = supabase
+      .storage
+      .from('faces-bucket')
+      .getPublicUrl(filePath);
+
+    facePhotoUrl = publicUrlData.publicUrl;
+  }
+
+  // 2) Викликаємо Edge Function request-access через supabase.functions.invoke
+  try {
+    const { data, error } = await supabase.functions.invoke('request-access', {
+      body: {
+        telegram_user_id: telegramUserId,
+        full_name: name,
+        access_key: key,
+        face_photo_url: facePhotoUrl,
+      },
+    });
+
+    if (error) {
+      console.error('request-access error', error);
+      this.errorMessage = 'Помилка надсилання заявки адміністратору.';
+      return;
+    }
+
+    console.log('request-access data:', data);
+    this.successMessage =
+      'Заявку відправлено адміністратору в Telegram для підтвердження.';
+  } catch (e) {
+    console.error(e);
+    this.errorMessage = 'Сталася помилка при підключенні до сервера.';
+  }
+}
+
 
   private async handleLogin(): Promise<void> {
     const telegramUserId = this.getTelegramUserId();
