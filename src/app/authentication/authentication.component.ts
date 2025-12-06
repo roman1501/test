@@ -1,24 +1,25 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal, OnInit } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { supabase } from '../supabase.client';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3anZxbHZ6YmlpZ2hiYWpqdXNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMTQ2ODYsImV4cCI6MjA4MDU5MDY4Nn0.eWM1cw2VXPUnlce477vmleIr6A_2RAayk9m9ZlaPbxQ';
+
 @Component({
   selector: 'app-authentication',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './authentication.component.html',
-  styleUrl: './authentication.component.scss'
+  styleUrl: './authentication.component.scss',
 })
 export class AuthenticationComponent implements OnInit {
-  private readonly router = inject(Router);
   protected readonly mode = signal<'login' | 'signup'>('login');
+
   protected readonly highlightText = computed(() =>
     this.mode() === 'login' ? 'Повернення до доступу' : 'Нова безпечна реєстрація'
   );
 
   private readonly formBuilder = inject(FormBuilder);
+  private readonly router = inject(Router);
 
   protected readonly authForm = this.formBuilder.group({
     fullName: this.formBuilder.control('', []),
@@ -26,35 +27,6 @@ export class AuthenticationComponent implements OnInit {
     confirmPassword: this.formBuilder.control('', []),
     facePhoto: this.formBuilder.control<File | null>(null, []),
   });
-async ngOnInit(): Promise<void> {
-  const telegramUserId = this.getTelegramUserId();
-  if (!telegramUserId) {
-    return;
-  }
-
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('status')
-    .eq('telegram_user_id', telegramUserId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('auth init status error', error);
-    return;
-  }
-
-  if (!profile) {
-    // ще не реєструвався – можна спокійно показувати форму
-    return;
-  }
-
-  if (profile.status === 'pending') {
-    // ❗ є заявка, але адмін ще не відповів → назад на екран статусу
-    this.router.navigate(['/access-status'], {
-      queryParams: { status: 'pending' },
-    });
-  }
-}
 
   protected readonly benefitList = [
     'Робіть запити на доступ без паперів',
@@ -66,8 +38,23 @@ async ngOnInit(): Promise<void> {
   protected errorMessage = '';
   protected isSubmitting = false;
 
-  private readonly REQUEST_ACCESS_URL =
-    'https://ewjvqlvzbiighbajjusg.supabase.co/functions/v1/request-access';
+  async ngOnInit(): Promise<void> {
+    const telegramUserId = this.getTelegramUserId();
+    if (!telegramUserId) return;
+
+    // Якщо вже є pending — одразу кидаємо в /auth-status
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('status')
+      .eq('telegram_user_id', telegramUserId)
+      .maybeSingle();
+
+    if (profile?.status === 'pending') {
+      await this.router.navigate(['/auth-status'], {
+        queryParams: { status: 'pending' },
+      });
+    }
+  }
 
   protected switchMode(newMode: 'login' | 'signup'): void {
     this.mode.set(newMode);
@@ -105,9 +92,7 @@ async ngOnInit(): Promise<void> {
       this.authForm.controls.confirmPassword.setErrors({ mismatch: true });
     }
 
-    if (this.authForm.invalid) {
-      return;
-    }
+    if (this.authForm.invalid) return;
 
     this.isSubmitting = true;
     try {
@@ -122,86 +107,77 @@ async ngOnInit(): Promise<void> {
   }
 
   private getTelegramUserId(): number | null {
-    // TODO: коли будеш запускати в Telegram WebApp — розкоментуєш це
+    // TODO: коли підеш у Telegram WebApp — повернеш це
     // const w = window as any;
     // const tgUser = w?.Telegram?.WebApp?.initDataUnsafe?.user;
     // if (!tgUser || typeof tgUser.id === 'undefined') return null;
     // return Number(tgUser.id);
 
-    return 521423479; // тимчасово для тестів
+    return 521423479; // тест: твій id
   }
 
-private async handleSignup(): Promise<void> {
-  const telegramUserId = this.getTelegramUserId();
+  private async handleSignup(): Promise<void> {
+    const telegramUserId = this.getTelegramUserId();
 
-  if (!telegramUserId) {
-    this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
-    return;
-  }
-
-  const { fullName, password, facePhoto } = this.authForm.value;
-
-  let facePhotoUrl: string | null = null;
-
-  // 1) Завантажуємо фото в Storage
-  if (facePhoto) {
-    const file = facePhoto as File;
-    const ext = file.name.split('.').pop() || 'png';
-    const filePath = `faces/${crypto.randomUUID()}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('faces-bucket')
-      .upload(filePath, file);
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      this.errorMessage = 'Помилка завантаження фото.';
+    if (!telegramUserId) {
+      this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
       return;
     }
 
-    const { data: publicUrlData } = supabase
-      .storage
-      .from('faces-bucket')
-      .getPublicUrl(filePath);
+    const { fullName, password, facePhoto } = this.authForm.value;
 
-    facePhotoUrl = publicUrlData.publicUrl;
+    // 1) Завантажуємо фото в Storage
+    let facePhotoUrl: string | null = null;
+
+    if (facePhoto) {
+      const file = facePhoto as File;
+      const ext = file.name.split('.').pop() || 'png';
+      const filePath = `faces/${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('faces-bucket')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        this.errorMessage = 'Помилка завантаження фото.';
+        return;
+      }
+
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('faces-bucket')
+        .getPublicUrl(filePath);
+
+      facePhotoUrl = publicUrlData.publicUrl;
+    }
+
+    // 2) Викликаємо Edge Function request-access через supabase-js
+    try {
+      const { error } = await supabase.functions.invoke('request-access', {
+        body: {
+          telegram_user_id: telegramUserId,
+          full_name: fullName,
+          access_key: password,
+          face_photo_url: facePhotoUrl,
+        },
+      });
+
+      if (error) {
+        console.error('request-access error', error);
+        this.errorMessage = 'Помилка надсилання заявки адміністратору.';
+        return;
+      }
+
+      // ✅ Одразу переходимо на екран статусу з pending
+      await this.router.navigate(['/auth-status'], {
+        queryParams: { status: 'pending' },
+      });
+    } catch (e) {
+      console.error(e);
+      this.errorMessage = 'Сталася помилка при підключенні до сервера.';
+    }
   }
-
-  // 2) Виклик Edge Function request-access
-// 2) Надсилаємо заявку в Edge Function request-access
-try {
-  const response = await fetch(this.REQUEST_ACCESS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain',
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({
-      telegram_user_id: telegramUserId,
-      full_name: fullName,
-      access_key: password,
-      face_photo_url: facePhotoUrl,
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    console.error('request-access error', response.status, text);
-    this.errorMessage = 'Помилка надсилання заявки адміністратору.';
-    return;
-  }
-
-  // ✅ ОДРАЗУ переходимо на екран статусу
-  this.router.navigate(['/access-status'], {
-    queryParams: { status: 'pending' },
-  });
-} catch (e) {
-  console.error(e);
-  this.errorMessage = 'Сталася помилка при підключенні до сервера.';
-}
-
-}
 
   private async handleLogin(): Promise<void> {
     const telegramUserId = this.getTelegramUserId();
@@ -226,24 +202,21 @@ try {
     }
 
     if (profile.status === 'pending') {
-      // ⚠️ Перенаправляємо на екран очікування
-      this.router.navigate(['/access-status'], {
+      await this.router.navigate(['/auth-status'], {
         queryParams: { status: 'pending' },
       });
       return;
     }
 
     if (profile.status === 'rejected') {
-      // ❌ Перенаправляємо на екран відхилення
-      this.router.navigate(['/access-status'], {
+      await this.router.navigate(['/auth-status'], {
         queryParams: { status: 'rejected' },
       });
       return;
     }
 
-    // ✅ approved — тут вже твій «головний» застосунок
-    this.successMessage = 'Вхід виконано. Доступ дозволено.';
-    // TODO: тут ти потім зробиш router.navigate(['/app']) чи щось подібне
+    // approved
+    await this.router.navigate(['/dashboard']);
   }
 
   protected showControl(controlName: 'fullName' | 'confirmPassword' | 'facePhoto'): boolean {

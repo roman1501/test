@@ -1,146 +1,127 @@
 import { CommonModule } from '@angular/common';
-import {
-  Component,
-  computed,
-  signal,
-  inject,
-  OnInit,
-  OnDestroy,
-} from '@angular/core';
-import { RouterModule, Router, ActivatedRoute } from '@angular/router';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Router, RouterModule } from '@angular/router';
 import { supabase } from '../supabase.client';
 
-type UiStatus = 'pending' | 'rejected' | 'approved';
+type StatusType = 'pending' | 'approved' | 'rejected' | 'none';
 
 @Component({
   selector: 'app-access-status',
   standalone: true,
   imports: [CommonModule, RouterModule],
-  templateUrl: './access-status.html',
-  styleUrl: './access-status.scss',
+  templateUrl: './access-status.component.html',
+  styleUrl: './access-status.component.scss',
 })
 export class AccessStatusComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
 
-  private readonly rawStatus = signal<UiStatus>('pending');
-  protected readonly status = computed(() => this.rawStatus());
+  private pollId: any = null;
+  private telegramUserId: number | null = null;
 
-  protected readonly adminUsername = 'SavchenkoUA';
-  protected readonly adminLink = 'https://t.me/SavchenkoUA';
-
-  private pollIntervalId: any = null;
+  protected readonly status = signal<StatusType>('pending');
+  protected readonly isLoading = signal(true);
+  protected readonly errorMessage = signal('');
 
   protected readonly title = computed(() => {
     switch (this.status()) {
       case 'pending':
         return 'Заявка очікує підтвердження';
-      case 'rejected':
-        return 'Доступ відхилено';
       case 'approved':
         return 'Доступ підтверджено';
+      case 'rejected':
+        return 'Заявку відхилено';
+      default:
+        return 'Статус доступу';
     }
   });
 
   protected readonly description = computed(() => {
     switch (this.status()) {
       case 'pending':
-        return 'Адміністратор перевіряє ваше фото та ключ доступу. Сторінка оновиться автоматично.';
-      case 'rejected':
-        return 'Адміністратор відхилив заявку. Якщо вважаєте, що це помилка — напишіть адміну в Telegram.';
+        return 'Адмін перевіряє ваші дані. Якщо очікування затягнулося — напишіть адміну в Telegram.';
       case 'approved':
-        return 'Доступ до системи підтверджено. Можете перейти на сайт.';
+        return 'Ваш акаунт підтверджено. Можете переходити до робочого кабінету.';
+      case 'rejected':
+        return 'Заявку відхилено. Напишіть адміну, щоб уточнити причину або подати повторно.';
+      case 'none':
+      default:
+        return 'Заявку не знайдено. Спробуйте зареєструватися ще раз.';
     }
   });
 
-  ngOnInit(): void {
-    // читаємо стартовий статус з query (якщо є)
-    this.route.queryParamMap.subscribe((params) => {
-      const s = params.get('status') as UiStatus | null;
-      if (s === 'pending' || s === 'rejected' || s === 'approved') {
-        this.rawStatus.set(s);
-      } else {
-        this.rawStatus.set('pending');
-      }
-    });
+  async ngOnInit(): Promise<void> {
+    this.telegramUserId = this.getTelegramUserId();
 
-    this.startPolling();
-  }
-
-  ngOnDestroy(): void {
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
-    }
-  }
-
-  // тимчасовий хардкод, як у AuthenticationComponent
-  private getTelegramUserId(): number | null {
-    // const w = window as any;
-    // const tgUser = w?.Telegram?.WebApp?.initDataUnsafe?.user;
-    // if (!tgUser || typeof tgUser.id === 'undefined') return null;
-    // return Number(tgUser.id);
-    return 521423479;
-  }
-
-  private startPolling(): void {
-    const telegramUserId = this.getTelegramUserId();
-    if (!telegramUserId) {
+    if (!this.telegramUserId) {
+      this.isLoading.set(false);
+      this.errorMessage.set('Цей екран потрібно запускати всередині Telegram WebApp.');
+      this.status.set('none');
       return;
     }
 
-    // перший запит
-    this.checkProfileStatus(telegramUserId).catch(console.error);
+    await this.refreshStatus();
 
-    // далі кожні 5 сек
-    this.pollIntervalId = setInterval(() => {
-      this.checkProfileStatus(telegramUserId).catch(console.error);
-    }, 5000);
+    // Поки pending — підтягуємо статус кожні 5 секунд
+    if (this.status() === 'pending') {
+      this.pollId = setInterval(() => {
+        this.refreshStatus();
+      }, 5000);
+    }
   }
 
-  private async checkProfileStatus(telegramUserId: number): Promise<void> {
+  ngOnDestroy(): void {
+    if (this.pollId) {
+      clearInterval(this.pollId);
+      this.pollId = null;
+    }
+  }
+
+  private getTelegramUserId(): number | null {
+    // TODO: тут теж потім підключиш Telegram.WebApp
+    return 521423479;
+  }
+
+  private async refreshStatus(): Promise<void> {
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('status')
-      .eq('telegram_user_id', telegramUserId)
+      .eq('telegram_user_id', this.telegramUserId)
       .maybeSingle();
 
+    this.isLoading.set(false);
+
     if (error) {
-      console.error('status poll error', error);
+      console.error(error);
+      this.errorMessage.set('Не вдалося отримати статус. Спробуйте пізніше.');
       return;
     }
 
     if (!profile) {
-      // профіль зник / видалили — повертаємо на /auth
-      this.router.navigate(['/auth']);
+      this.status.set('none');
       return;
     }
 
-    const dbStatus = profile.status as 'pending' | 'approved' | 'rejected';
+    const rawStatus = profile.status as 'pending' | 'approved' | 'rejected';
+    this.status.set(rawStatus);
 
-    if (dbStatus === 'pending') {
-      this.rawStatus.set('pending');
-    }
-
-    if (dbStatus === 'rejected') {
-      this.rawStatus.set('rejected');
-      // ❗ НЕ перекидаємо юзера — він тут бачить причину + кнопку написати адміну
-    }
-
-    if (dbStatus === 'approved') {
-      this.rawStatus.set('approved');
-      // можна зупинити пулінг, бо статус фінальний
-      if (this.pollIntervalId) {
-        clearInterval(this.pollIntervalId);
-      }
+    if (rawStatus !== 'pending' && this.pollId) {
+      clearInterval(this.pollId);
+      this.pollId = null;
     }
   }
 
-  protected openAdminChat(): void {
-    window.open(this.adminLink, '_blank');
+  protected contactAdmin(): void {
+    window.open('https://t.me/SavchenkoUA', '_blank'); // 👈 твій Telegram
   }
 
-  protected goToSite(): void {
-    // 👇 Тут шлях на твій "основний" сайт / додаток
-    this.router.navigate(['/']); // або '/app', якщо так назвете
+  protected goToDashboard(): void {
+    this.router.navigate(['/dashboard']);
+  }
+
+  protected goToAuth(): void {
+    this.router.navigate(['/auth']);
   }
 }
