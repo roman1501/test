@@ -7,10 +7,10 @@ import {
   OnInit,
   OnDestroy,
 } from '@angular/core';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { supabase } from '../supabase.client'; // 👈 шлях перевір
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
+import { supabase } from '../supabase.client';
 
-type UiStatus = 'created' | 'pending' | 'rejected';
+type UiStatus = 'pending' | 'rejected' | 'approved';
 
 @Component({
   selector: 'app-access-status',
@@ -20,53 +20,47 @@ type UiStatus = 'created' | 'pending' | 'rejected';
   styleUrl: './access-status.scss',
 })
 export class AccessStatusComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
-  private readonly rawStatus = signal<UiStatus>('created');
-
+  private readonly rawStatus = signal<UiStatus>('pending');
   protected readonly status = computed(() => this.rawStatus());
-
-  protected readonly title = computed(() => {
-    switch (this.status()) {
-      case 'created':
-        return 'Заявку на доступ надіслано';
-      case 'pending':
-        return 'Заявка очікує підтвердження';
-      case 'rejected':
-        return 'Доступ не підтверджено';
-      default:
-        return 'Статус доступу';
-    }
-  });
-
-  protected readonly description = computed(() => {
-    switch (this.status()) {
-      case 'created':
-        return 'Ваші дані отримано. Адмін перевіряє фото та ключ доступу.';
-      case 'pending':
-        return 'Заявка вже є в системі, але ще очікує рішення адміністратора.';
-      case 'rejected':
-        return 'Адмін відмовив у доступі для цього ключа. Якщо це помилка — напишіть адміну в Telegram.';
-      default:
-        return '';
-    }
-  });
 
   protected readonly adminUsername = 'SavchenkoUA';
   protected readonly adminLink = 'https://t.me/SavchenkoUA';
 
   private pollIntervalId: any = null;
 
+  protected readonly title = computed(() => {
+    switch (this.status()) {
+      case 'pending':
+        return 'Заявка очікує підтвердження';
+      case 'rejected':
+        return 'Доступ відхилено';
+      case 'approved':
+        return 'Доступ підтверджено';
+    }
+  });
+
+  protected readonly description = computed(() => {
+    switch (this.status()) {
+      case 'pending':
+        return 'Адміністратор перевіряє ваше фото та ключ доступу. Сторінка оновиться автоматично.';
+      case 'rejected':
+        return 'Адміністратор відхилив заявку. Якщо вважаєте, що це помилка — напишіть адміну в Telegram.';
+      case 'approved':
+        return 'Доступ до системи підтверджено. Можете перейти на сайт.';
+    }
+  });
+
   ngOnInit(): void {
-    // стартовий статус з query params — created / pending / rejected
+    // читаємо стартовий статус з query (якщо є)
     this.route.queryParamMap.subscribe((params) => {
-      const statusParam = params.get('status') as UiStatus | null;
-      if (statusParam === 'created' || statusParam === 'pending' || statusParam === 'rejected') {
-        this.rawStatus.set(statusParam);
+      const s = params.get('status') as UiStatus | null;
+      if (s === 'pending' || s === 'rejected' || s === 'approved') {
+        this.rawStatus.set(s);
       } else {
-        // якщо щось дивне — повертаєм на auth
-        this.router.navigate(['/auth']); // 👈 підлаштуй під свій роут логіна
+        this.rawStatus.set('pending');
       }
     });
 
@@ -79,14 +73,13 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ❗ тимчасовий хардкод, як у AuthenticationComponent
+  // тимчасовий хардкод, як у AuthenticationComponent
   private getTelegramUserId(): number | null {
     // const w = window as any;
     // const tgUser = w?.Telegram?.WebApp?.initDataUnsafe?.user;
     // if (!tgUser || typeof tgUser.id === 'undefined') return null;
     // return Number(tgUser.id);
-
-    return 521423479; // 👈 для тестів
+    return 521423479;
   }
 
   private startPolling(): void {
@@ -95,10 +88,10 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // перша перевірка одразу
+    // перший запит
     this.checkProfileStatus(telegramUserId).catch(console.error);
 
-    // потім кожні 5 секунд
+    // далі кожні 5 сек
     this.pollIntervalId = setInterval(() => {
       this.checkProfileStatus(telegramUserId).catch(console.error);
     }, 5000);
@@ -117,41 +110,37 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
     }
 
     if (!profile) {
-      // профіль не знайдено → повертаєм на екран логіна
-      this.router.navigate(['/auth']); // 👈 знову ж, твій шлях
+      // профіль зник / видалили — повертаємо на /auth
+      this.router.navigate(['/auth']);
       return;
     }
 
-    const newStatus = profile.status as 'pending' | 'approved' | 'rejected';
+    const dbStatus = profile.status as 'pending' | 'approved' | 'rejected';
 
-    if (newStatus === 'pending') {
-      // показуємо "очікує", якщо було created
-      if (this.rawStatus() !== 'pending') {
-        this.rawStatus.set('pending');
-      }
+    if (dbStatus === 'pending') {
+      this.rawStatus.set('pending');
     }
 
-    if (newStatus === 'rejected') {
-      // залипаємо на екрані "відхилено"
-      if (this.rawStatus() !== 'rejected') {
-        this.rawStatus.set('rejected');
-      }
+    if (dbStatus === 'rejected') {
+      this.rawStatus.set('rejected');
+      // ❗ НЕ перекидаємо юзера — він тут бачить причину + кнопку написати адміну
     }
 
-    if (newStatus === 'approved') {
-      // ✅ адмін підтвердив → кидаємо користувача далі
-      clearInterval(this.pollIntervalId);
-
-      // тут вирішуєш куди:
-      // 1) назад на екран логіна, щоб він просто ввів ключ
-      this.router.navigate(['/auth']); // 👈 твій роут компонента авторизації
-
-      // або 2) одразу на "головний" застосунок:
-      // this.router.navigate(['/app']);
+    if (dbStatus === 'approved') {
+      this.rawStatus.set('approved');
+      // можна зупинити пулінг, бо статус фінальний
+      if (this.pollIntervalId) {
+        clearInterval(this.pollIntervalId);
+      }
     }
   }
 
-  protected goBackToAuth(): void {
-    this.router.navigate(['/auth']); // 👈 теж підлаштуй
+  protected openAdminChat(): void {
+    window.open(this.adminLink, '_blank');
+  }
+
+  protected goToSite(): void {
+    // 👇 Тут шлях на твій "основний" сайт / додаток
+    this.router.navigate(['/']); // або '/app', якщо так назвете
   }
 }

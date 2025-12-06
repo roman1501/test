@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { supabase } from '../supabase.client';
@@ -11,14 +11,14 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
   templateUrl: './authentication.component.html',
   styleUrl: './authentication.component.scss'
 })
-export class AuthenticationComponent {
+export class AuthenticationComponent implements OnInit {
+  private readonly router = inject(Router);
   protected readonly mode = signal<'login' | 'signup'>('login');
   protected readonly highlightText = computed(() =>
     this.mode() === 'login' ? 'Повернення до доступу' : 'Нова безпечна реєстрація'
   );
 
   private readonly formBuilder = inject(FormBuilder);
-  private readonly router = inject(Router);
 
   protected readonly authForm = this.formBuilder.group({
     fullName: this.formBuilder.control('', []),
@@ -26,6 +26,35 @@ export class AuthenticationComponent {
     confirmPassword: this.formBuilder.control('', []),
     facePhoto: this.formBuilder.control<File | null>(null, []),
   });
+async ngOnInit(): Promise<void> {
+  const telegramUserId = this.getTelegramUserId();
+  if (!telegramUserId) {
+    return;
+  }
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('status')
+    .eq('telegram_user_id', telegramUserId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('auth init status error', error);
+    return;
+  }
+
+  if (!profile) {
+    // ще не реєструвався – можна спокійно показувати форму
+    return;
+  }
+
+  if (profile.status === 'pending') {
+    // ❗ є заявка, але адмін ще не відповів → назад на екран статусу
+    this.router.navigate(['/access-status'], {
+      queryParams: { status: 'pending' },
+    });
+  }
+}
 
   protected readonly benefitList = [
     'Робіть запити на доступ без паперів',
@@ -139,38 +168,39 @@ private async handleSignup(): Promise<void> {
   }
 
   // 2) Виклик Edge Function request-access
-  try {
-    const response = await fetch(this.REQUEST_ACCESS_URL, {
-      method: 'POST',
-      headers: {
-        // 👇 обовʼязково
-        'Content-Type': 'text/plain', // JSON всередині, але простий header
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        telegram_user_id: telegramUserId,
-        full_name: fullName,
-        access_key: password,
-        face_photo_url: facePhotoUrl,
-      }),
-    });
+// 2) Надсилаємо заявку в Edge Function request-access
+try {
+  const response = await fetch(this.REQUEST_ACCESS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({
+      telegram_user_id: telegramUserId,
+      full_name: fullName,
+      access_key: password,
+      face_photo_url: facePhotoUrl,
+    }),
+  });
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      console.error('request-access error', response.status, text);
-      this.errorMessage = 'Помилка надсилання заявки адміністратору.';
-      return;
-    }
-
-    // ✅ після успішної заявки — на екран статусу
-    this.router.navigate(['/access-status'], {
-      queryParams: { status: 'created' },
-    });
-  } catch (e) {
-    console.error(e);
-    this.errorMessage = 'Сталася помилка при підключенні до сервера.';
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    console.error('request-access error', response.status, text);
+    this.errorMessage = 'Помилка надсилання заявки адміністратору.';
+    return;
   }
+
+  // ✅ ОДРАЗУ переходимо на екран статусу
+  this.router.navigate(['/access-status'], {
+    queryParams: { status: 'pending' },
+  });
+} catch (e) {
+  console.error(e);
+  this.errorMessage = 'Сталася помилка при підключенні до сервера.';
+}
+
 }
 
   private async handleLogin(): Promise<void> {

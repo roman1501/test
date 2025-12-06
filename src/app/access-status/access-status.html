@@ -1,38 +1,46 @@
-<section class="status-page">
+<section class="status-page" [ngClass]="status()">
   <div class="status-card">
     <h1>{{ title() }}</h1>
+
     <p class="description">
       {{ description() }}
     </p>
 
     <div
-      class="status-badge"
-      [class.pending]="status() === 'pending'"
-      [class.rejected]="status() === 'rejected'"
+      class="status-pill"
+      [ngClass]="{
+        pending: status() === 'pending',
+        rejected: status() === 'rejected',
+        approved: status() === 'approved'
+      }"
     >
       <ng-container [ngSwitch]="status()">
-        <span *ngSwitchCase="'created'">🟡 Заявка відправлена</span>
-        <span *ngSwitchCase="'pending'">⌛ Очікує підтвердження</span>
-        <span *ngSwitchCase="'rejected'">🔴 Відхилена</span>
+        <span *ngSwitchCase="'pending'">🟡 Очікування рішення адміністратора</span>
+        <span *ngSwitchCase="'rejected'">🔴 Доступ відхилено</span>
+        <span *ngSwitchCase="'approved'">🟢 Доступ підтверджено</span>
       </ng-container>
     </div>
 
-    <div class="hint-block" *ngIf="status() === 'created' || status() === 'pending'">
-      <p>
-        Коли адміністратор підтвердить заявку, сторінка оновиться автоматично. Після цього ви зможете ввійти за
-        своїм ключем.
-      </p>
-    </div>
+    <div class="actions">
+      <!-- pending / rejected → тільки кнопка "написати адміну" -->
+      <button
+        type="button"
+        class="secondary"
+        *ngIf="status() === 'pending' || status() === 'rejected'"
+        (click)="openAdminChat()"
+      >
+        Написати адміну в Telegram (@{{ adminUsername }})
+      </button>
 
-    <div class="hint-block danger" *ngIf="status() === 'rejected'">
-      <p>Якщо хочете уточнити причину — напишіть адміну в Telegram.</p>
-      <a class="admin-link" [href]="adminLink" target="_blank" rel="noopener">
-        Написати адміну (@{{ adminUsername }})
-      </a>
+      <!-- approved → даємо кнопку перейти на сайт -->
+      <button
+        type="button"
+        class="primary"
+        *ngIf="status() === 'approved'"
+        (click)="goToSite()"
+      >
+        Перейти на сайт
+      </button>
     </div>
-
-    <button type="button" class="primary" (click)="goBackToAuth()">
-      Повернутися до входу
-    </button>
   </div>
 </section>
