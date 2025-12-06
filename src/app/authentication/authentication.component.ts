@@ -94,12 +94,13 @@ export class AuthenticationComponent {
   }
 
   private getTelegramUserId(): number | null {
-    const w = window as any;
-    const tgUser = w?.Telegram?.WebApp?.initDataUnsafe?.user;
-    if (!tgUser || typeof tgUser.id === 'undefined') {
-      return null;
-    }
-    return Number(tgUser.id);
+    // const w = window as any;
+    // const tgUser = w?.Telegram?.WebApp?.initDataUnsafe?.user;
+    // if (!tgUser || typeof tgUser.id === 'undefined') {
+    //   return null;
+    // }
+    // return Number(tgUser.id);
+      return 521423479; 
   }
 
   private async handleSignup(): Promise<void> {
