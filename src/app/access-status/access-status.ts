@@ -1,35 +1,40 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
-import { Router, RouterModule } from '@angular/router';
+import {
+  Component,
+  computed,
+  signal,
+  inject,
+  OnInit,
+  OnDestroy,
+} from '@angular/core';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { supabase } from '../supabase.client'; // 👈 шлях перевір
 
-type AccessStatus = 'signup_pending' | 'pending' | 'approved' | 'rejected';
+type UiStatus = 'created' | 'pending' | 'rejected';
 
 @Component({
   selector: 'app-access-status',
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './access-status.html',
-  styleUrls: ['./access-status.scss'],
+  styleUrl: './access-status.scss',
 })
-export class AccessStatusComponent {
-  // хто ми такі на цьому екрані
-  protected readonly fullName = signal<string | null>(null);
-  protected readonly telegramUserId = signal<number | null>(null);
-  protected readonly status = signal<AccessStatus>('pending');
+export class AccessStatusComponent implements OnInit, OnDestroy {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
-  // твій Telegram для звʼязку
-  protected readonly adminTelegramUsername = 'SavchenkoUA';
+  private readonly rawStatus = signal<UiStatus>('created');
+
+  protected readonly status = computed(() => this.rawStatus());
 
   protected readonly title = computed(() => {
     switch (this.status()) {
-      case 'signup_pending':
-        return 'Заявка на доступ відправлена';
+      case 'created':
+        return 'Заявку на доступ надіслано';
       case 'pending':
-        return 'Заявка ще на перевірці';
+        return 'Заявка очікує підтвердження';
       case 'rejected':
-        return 'Доступ відхилено';
-      case 'approved':
-        return 'Доступ підтверджено';
+        return 'Доступ не підтверджено';
       default:
         return 'Статус доступу';
     }
@@ -37,45 +42,116 @@ export class AccessStatusComponent {
 
   protected readonly description = computed(() => {
     switch (this.status()) {
-      case 'signup_pending':
-        return 'Адміністратор отримав вашу заявку в Telegram і перевіряє дані. Як тільки доступ буде підтверджено — ви зможете увійти тим самим ключем.';
+      case 'created':
+        return 'Ваші дані отримано. Адмін перевіряє фото та ключ доступу.';
       case 'pending':
-        return 'Ваша заявка ще очікує рішення адміністратора. Спробуйте пізніше або напишіть адміну, якщо це займає занадто багато часу.';
+        return 'Заявка вже є в системі, але ще очікує рішення адміністратора.';
       case 'rejected':
-        return 'Наразі доступ відхилено. Перевірте, чи коректно вказані дані, та за потреби звʼяжіться з адміністратором для уточнення.';
-      case 'approved':
-        return 'Ваш доступ підтверджено. Ви можете використовувати свій ключ, щоб заходити в систему з цього Telegram-акаунту.';
+        return 'Адмін відмовив у доступі для цього ключа. Якщо це помилка — напишіть адміну в Telegram.';
       default:
-        return 'Перевірка статусу доступу.';
+        return '';
     }
   });
 
-  constructor(private readonly router: Router) {
-    const nav = this.router.getCurrentNavigation();
-    const state = (nav?.extras.state ?? {}) as {
-      status?: AccessStatus;
-      fullName?: string;
-      telegramUserId?: number;
-    };
+  protected readonly adminUsername = 'SavchenkoUA';
+  protected readonly adminLink = 'https://t.me/SavchenkoUA';
 
-    if (state.status) {
-      this.status.set(state.status);
+  private pollIntervalId: any = null;
+
+  ngOnInit(): void {
+    // стартовий статус з query params — created / pending / rejected
+    this.route.queryParamMap.subscribe((params) => {
+      const statusParam = params.get('status') as UiStatus | null;
+      if (statusParam === 'created' || statusParam === 'pending' || statusParam === 'rejected') {
+        this.rawStatus.set(statusParam);
+      } else {
+        // якщо щось дивне — повертаєм на auth
+        this.router.navigate(['/auth']); // 👈 підлаштуй під свій роут логіна
+      }
+    });
+
+    this.startPolling();
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollIntervalId) {
+      clearInterval(this.pollIntervalId);
+    }
+  }
+
+  // ❗ тимчасовий хардкод, як у AuthenticationComponent
+  private getTelegramUserId(): number | null {
+    // const w = window as any;
+    // const tgUser = w?.Telegram?.WebApp?.initDataUnsafe?.user;
+    // if (!tgUser || typeof tgUser.id === 'undefined') return null;
+    // return Number(tgUser.id);
+
+    return 521423479; // 👈 для тестів
+  }
+
+  private startPolling(): void {
+    const telegramUserId = this.getTelegramUserId();
+    if (!telegramUserId) {
+      return;
     }
 
-    if (state.fullName) {
-      this.fullName.set(state.fullName);
+    // перша перевірка одразу
+    this.checkProfileStatus(telegramUserId).catch(console.error);
+
+    // потім кожні 5 секунд
+    this.pollIntervalId = setInterval(() => {
+      this.checkProfileStatus(telegramUserId).catch(console.error);
+    }, 5000);
+  }
+
+  private async checkProfileStatus(telegramUserId: number): Promise<void> {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('status')
+      .eq('telegram_user_id', telegramUserId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('status poll error', error);
+      return;
     }
 
-    if (state.telegramUserId) {
-      this.telegramUserId.set(state.telegramUserId);
+    if (!profile) {
+      // профіль не знайдено → повертаєм на екран логіна
+      this.router.navigate(['/auth']); // 👈 знову ж, твій шлях
+      return;
+    }
+
+    const newStatus = profile.status as 'pending' | 'approved' | 'rejected';
+
+    if (newStatus === 'pending') {
+      // показуємо "очікує", якщо було created
+      if (this.rawStatus() !== 'pending') {
+        this.rawStatus.set('pending');
+      }
+    }
+
+    if (newStatus === 'rejected') {
+      // залипаємо на екрані "відхилено"
+      if (this.rawStatus() !== 'rejected') {
+        this.rawStatus.set('rejected');
+      }
+    }
+
+    if (newStatus === 'approved') {
+      // ✅ адмін підтвердив → кидаємо користувача далі
+      clearInterval(this.pollIntervalId);
+
+      // тут вирішуєш куди:
+      // 1) назад на екран логіна, щоб він просто ввів ключ
+      this.router.navigate(['/auth']); // 👈 твій роут компонента авторизації
+
+      // або 2) одразу на "головний" застосунок:
+      // this.router.navigate(['/app']);
     }
   }
 
   protected goBackToAuth(): void {
-    this.router.navigate(['/auth']); // 👈 підстав свій шлях до AuthenticationComponent
-  }
-
-  protected get adminTelegramLink(): string {
-    return `https://t.me/${this.adminTelegramUsername}`;
+    this.router.navigate(['/auth']); // 👈 теж підлаштуй
   }
 }
