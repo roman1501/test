@@ -1,9 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { AccessService, StatusType } from '../access.service';
 import { supabase } from '../supabase.client';
-
-type StatusType = 'pending' | 'approved' | 'rejected' | 'none';
 
 @Component({
   selector: 'app-access-status',
@@ -13,6 +12,8 @@ type StatusType = 'pending' | 'approved' | 'rejected' | 'none';
   styleUrl: './access-status.scss',
 })
 export class AccessStatusComponent implements OnInit, OnDestroy {
+  private readonly accessService = inject(AccessService);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   private pollId: any = null;
@@ -50,6 +51,11 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
   });
 
   async ngOnInit(): Promise<void> {
+    const statusFromService = this.accessService.currentStatus();
+    const statusFromRoute = this.route.snapshot.queryParamMap.get('status') as StatusType | null;
+
+    this.status.set(statusFromRoute ?? statusFromService ?? 'pending');
+
     this.telegramUserId = this.getTelegramUserId();
 
     if (!this.telegramUserId) {
@@ -101,11 +107,13 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
 
     if (!profile) {
       this.status.set('none');
+      this.accessService.setSessionStatus('none');
       return;
     }
 
     const rawStatus = profile.status as 'pending' | 'approved' | 'rejected';
     this.status.set(rawStatus);
+    this.accessService.setSessionStatus(rawStatus);
 
     if (rawStatus !== 'pending' && this.pollId) {
       clearInterval(this.pollId);
@@ -118,10 +126,12 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
   }
 
   protected goToDashboard(): void {
+        this.accessService.approveSession();
     this.router.navigate(['/dashboard']);
   }
 
-  protected goToAuth(): void {
-    this.router.navigate(['/auth']);
+  protected goToAuth(mode: 'login' | 'signup' = 'login'): void {
+    this.accessService.clearSession();
+    this.router.navigate(['/auth'], { queryParams: { mode } });
   }
 }

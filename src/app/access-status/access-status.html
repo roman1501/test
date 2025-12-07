@@ -10,35 +10,36 @@
     <p class="error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
 
     <div class="actions">
-      <!-- pending або rejected — кнопка написати адміну -->
-      <button
-        type="button"
-        class="ghost"
-        *ngIf="status() === 'pending' || status() === 'rejected'"
-        (click)="contactAdmin()"
-      >
-        Написати адміну в Telegram
-      </button>
+      <ng-container [ngSwitch]="status()">
+        <ng-container *ngSwitchCase="'pending'">
+          <button type="button" class="ghost" (click)="contactAdmin()">
+            Написати адміну в Telegram
+          </button>
+        </ng-container>
 
-      <!-- rejected — дозволяємо повернутися на форму -->
-      <button
-        type="button"
-        class="secondary"
-        *ngIf="status() === 'rejected'"
-        (click)="goToAuth()"
-      >
-        Заповнити нову заявку
-      </button>
+        <ng-container *ngSwitchCase="'approved'">
+          <button type="button" class="primary" (click)="goToDashboard()">
+            Перейти до кабінету
+          </button>
+          <button type="button" class="secondary" (click)="goToAuth('login')">
+            Вийти / змінити акаунт
+          </button>
+        </ng-container>
+        <ng-container *ngSwitchCase="'rejected'">
+          <button type="button" class="ghost" (click)="contactAdmin()">
+            Написати адміну в Telegram
+          </button>
+          <button type="button" class="secondary" (click)="goToAuth('signup')">
+            Подати заявку повторно
+          </button>
+        </ng-container>
 
-      <!-- approved — кнопка перейти на сайт -->
-      <button
-        type="button"
-        class="primary"
-        *ngIf="status() === 'approved'"
-        (click)="goToDashboard()"
-      >
-        Перейти до кабінету
-      </button>
+        <ng-container *ngSwitchCase="'none'">
+          <button type="button" class="secondary" (click)="goToAuth('signup')">
+            Повернутися до реєстрації
+          </button>
+        </ng-container>
+      </ng-container>
     </div>
   </div>
 </section>

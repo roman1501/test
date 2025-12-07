@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { AccessService, StatusType } from '../access.service';
 import { supabase } from '../supabase.client';
 
 @Component({
@@ -19,7 +20,9 @@ export class AuthenticationComponent implements OnInit {
   );
 
   private readonly formBuilder = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly accessService = inject(AccessService);
 
   protected readonly authForm = this.formBuilder.group({
     fullName: this.formBuilder.control('', []),
@@ -39,6 +42,8 @@ export class AuthenticationComponent implements OnInit {
   protected isSubmitting = false;
 
   async ngOnInit(): Promise<void> {
+    this.applyModeFromRoute();
+
     const telegramUserId = this.getTelegramUserId();
     if (!telegramUserId) return;
 
@@ -50,12 +55,22 @@ export class AuthenticationComponent implements OnInit {
       .maybeSingle();
 
     if (profile?.status === 'pending') {
+      this.accessService.setSessionStatus('pending');
       await this.router.navigate(['/auth-status'], {
         queryParams: { status: 'pending' },
       });
     }
   }
+  private applyModeFromRoute(): void {
+    const requestedMode = this.route.snapshot.queryParamMap.get('mode') as
+      | 'login'
+      | 'signup'
+      | null;
 
+    if (requestedMode) {
+      this.switchMode(requestedMode);
+    }
+  }
   protected switchMode(newMode: 'login' | 'signup'): void {
     this.mode.set(newMode);
     this.successMessage = '';
@@ -121,6 +136,7 @@ export class AuthenticationComponent implements OnInit {
 
     if (!telegramUserId) {
       this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
+      this.accessService.clearSession();
       return;
     }
 
@@ -144,10 +160,7 @@ export class AuthenticationComponent implements OnInit {
         return;
       }
 
-      const { data: publicUrlData } = supabase
-        .storage
-        .from('faces-bucket')
-        .getPublicUrl(filePath);
+      const { data: publicUrlData } = supabase.storage.from('faces-bucket').getPublicUrl(filePath);
 
       facePhotoUrl = publicUrlData.publicUrl;
     }
@@ -166,10 +179,12 @@ export class AuthenticationComponent implements OnInit {
       if (error) {
         console.error('request-access error', error);
         this.errorMessage = 'Помилка надсилання заявки адміністратору.';
+        this.accessService.clearSession();
         return;
       }
 
       // ✅ Одразу переходимо на екран статусу з pending
+      this.accessService.setSessionStatus('pending');
       await this.router.navigate(['/auth-status'], {
         queryParams: { status: 'pending' },
       });
@@ -184,6 +199,7 @@ export class AuthenticationComponent implements OnInit {
 
     if (!telegramUserId) {
       this.errorMessage = 'Цей екран потрібно запускати всередині Telegram WebApp.';
+      this.accessService.clearSession();
       return;
     }
 
@@ -196,12 +212,23 @@ export class AuthenticationComponent implements OnInit {
       .eq('telegram_user_id', telegramUserId)
       .maybeSingle();
 
-    if (error || !profile) {
+    if (error) {
       this.errorMessage = 'Невірний ключ доступу або акаунт не знайдено.';
+      this.accessService.clearSession();
+      return;
+    }
+
+    if (!profile) {
+      this.errorMessage = '';
+      this.accessService.setSessionStatus('none');
+      await this.router.navigate(['/auth-status'], {
+        queryParams: { status: 'none' },
+      });
       return;
     }
 
     if (profile.status === 'pending') {
+      this.accessService.setSessionStatus('pending');
       await this.router.navigate(['/auth-status'], {
         queryParams: { status: 'pending' },
       });
@@ -209,6 +236,7 @@ export class AuthenticationComponent implements OnInit {
     }
 
     if (profile.status === 'rejected') {
+      this.accessService.setSessionStatus('rejected');
       await this.router.navigate(['/auth-status'], {
         queryParams: { status: 'rejected' },
       });
@@ -216,7 +244,11 @@ export class AuthenticationComponent implements OnInit {
     }
 
     // approved
-    await this.router.navigate(['/dashboard']);
+    const status: StatusType = 'approved';
+    this.accessService.setSessionStatus(status);
+    await this.router.navigate(['/auth-status'], {
+      queryParams: { status },
+    });
   }
 
   protected showControl(controlName: 'fullName' | 'confirmPassword' | 'facePhoto'): boolean {

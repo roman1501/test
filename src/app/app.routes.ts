@@ -10,25 +10,19 @@ export const routes: Routes = [
   {
     path: 'auth',
     loadComponent: () =>
-      import('./authentication/authentication.component').then(
-        m => m.AuthenticationComponent
-      ),
+      import('./authentication/authentication.component').then((m) => m.AuthenticationComponent),
   },
 
   {
     path: 'auth-status',
     loadComponent: () =>
-      import('./access-status/access-status').then(
-        m => m.AccessStatusComponent
-      ),
+      import('./access-status/access-status').then((m) => m.AccessStatusComponent),
   },
 
   {
     path: 'dashboard',
-    loadComponent: () =>
-      import('./dashboard/dashboard').then(
-        m => m.Dashboard
-      ),
+    canActivate: [() => import('./dashboard.guard').then((m) => m.dashboardGuard)],
+    loadComponent: () => import('./dashboard/dashboard').then((m) => m.Dashboard),
   },
 
   // будь-який інший шлях — на авторизацію
