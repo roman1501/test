@@ -17,7 +17,7 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
 
   private pollId: any = null;
-  private telegramUserId: number | null = null;
+  private profileId: string | null = null;
 
   protected readonly status = signal<StatusType>('pending');
   protected readonly isLoading = signal(true);
@@ -46,29 +46,39 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
         return 'Заявку відхилено. Напишіть адміну, щоб уточнити причину або подати повторно.';
       case 'none':
       default:
-        return 'Заявку не знайдено. Спробуйте зареєструватися ще раз.';
+        return 'Акаунт не знайдено. Спробуйте зареєструватися ще раз.';
     }
   });
 
   async ngOnInit(): Promise<void> {
     const statusFromService = this.accessService.currentStatus();
     const statusFromRoute = this.route.snapshot.queryParamMap.get('status') as StatusType | null;
+    const profileIdFromRoute = this.route.snapshot.queryParamMap.get('profileId');
 
-    this.status.set(statusFromRoute ?? statusFromService ?? 'pending');
+    this.profileId = profileIdFromRoute ?? this.accessService.currentProfileId();
+    const initialStatus = statusFromRoute ?? statusFromService ?? 'none';
+    this.status.set(initialStatus);
+    this.accessService.setSession(initialStatus, this.profileId);
 
-    this.telegramUserId = this.getTelegramUserId();
-
-    if (!this.telegramUserId) {
+    if (initialStatus === 'none') {
       this.isLoading.set(false);
-      this.errorMessage.set('Цей екран потрібно запускати всередині Telegram WebApp.');
+      this.errorMessage.set('Акаунт не знайдено.');
+      this.accessService.setSession('none');
+      return;
+    }
+
+    if (!this.profileId) {
+      this.isLoading.set(false);
+      this.errorMessage.set('Профіль не знайдено. Спробуйте увійти знову.');
       this.status.set('none');
+      this.accessService.setSession('none');
       return;
     }
 
     await this.refreshStatus();
 
     // Поки pending — підтягуємо статус кожні 5 секунд
-    if (this.status() === 'pending') {
+    if (this.status() === 'pending' && this.profileId) {
       this.pollId = setInterval(() => {
         this.refreshStatus();
       }, 5000);
@@ -82,11 +92,6 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
     }
   }
 
-  private getTelegramUserId(): number | null {
-    // TODO: тут теж потім підключиш Telegram.WebApp
-    return 521423479;
-  }
-
   private async refreshStatus(): Promise<void> {
     this.isLoading.set(true);
     this.errorMessage.set('');
@@ -94,7 +99,7 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('status')
-      .eq('telegram_user_id', this.telegramUserId)
+      .eq('id', this.profileId)
       .maybeSingle();
 
     this.isLoading.set(false);
@@ -107,13 +112,18 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
 
     if (!profile) {
       this.status.set('none');
-      this.accessService.setSessionStatus('none');
+      this.accessService.setSession('none');
+      this.errorMessage.set('Акаунт не знайдено.');
       return;
     }
 
     const rawStatus = profile.status as 'pending' | 'approved' | 'rejected';
     this.status.set(rawStatus);
-    this.accessService.setSessionStatus(rawStatus);
+    this.accessService.setSession(rawStatus, this.profileId);
+
+    if (rawStatus === 'approved') {
+      this.accessService.approveSession();
+    }
 
     if (rawStatus !== 'pending' && this.pollId) {
       clearInterval(this.pollId);
@@ -126,7 +136,8 @@ export class AccessStatusComponent implements OnInit, OnDestroy {
   }
 
   protected goToDashboard(): void {
-        this.accessService.approveSession();
+    this.accessService.setSession('approved', this.profileId);
+    this.accessService.approveSession();
     this.router.navigate(['/dashboard']);
   }
 
