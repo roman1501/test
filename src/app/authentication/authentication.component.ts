@@ -50,14 +50,15 @@ export class AuthenticationComponent implements OnInit {
     // Якщо вже є pending — одразу кидаємо в /auth-status
     const { data: profile } = await supabase
       .from('profiles')
-      .select('status')
+      .select('id, status')
       .eq('telegram_user_id', telegramUserId)
+      .eq('status', 'pending')
       .maybeSingle();
 
     if (profile?.status === 'pending') {
-      this.accessService.setSessionStatus('pending');
+      this.accessService.setSession('pending', profile.id);
       await this.router.navigate(['/auth-status'], {
-        queryParams: { status: 'pending' },
+        queryParams: { status: 'pending', profileId: profile.id },
       });
     }
   }
@@ -167,7 +168,7 @@ export class AuthenticationComponent implements OnInit {
 
     // 2) Викликаємо Edge Function request-access через supabase-js
     try {
-      const { error } = await supabase.functions.invoke('request-access', {
+      const { data, error } = await supabase.functions.invoke('request-access', {
         body: {
           telegram_user_id: telegramUserId,
           full_name: fullName,
@@ -183,10 +184,17 @@ export class AuthenticationComponent implements OnInit {
         return;
       }
 
+      const profileId = (data as any)?.profile?.id ?? (data as any)?.profileId ?? null;
+      if (!profileId) {
+        this.errorMessage = 'Не вдалося створити заявку. Спробуйте знову.';
+        this.accessService.clearSession();
+        return;
+      }
+
       // ✅ Одразу переходимо на екран статусу з pending
-      this.accessService.setSessionStatus('pending');
+      this.accessService.setSession('pending', profileId);
       await this.router.navigate(['/auth-status'], {
-        queryParams: { status: 'pending' },
+        queryParams: { status: 'pending', profileId },
       });
     } catch (e) {
       console.error(e);
@@ -214,13 +222,12 @@ export class AuthenticationComponent implements OnInit {
 
     if (error) {
       this.errorMessage = 'Невірний ключ доступу або акаунт не знайдено.';
-      this.accessService.clearSession();
       return;
     }
 
     if (!profile) {
       this.errorMessage = '';
-      this.accessService.setSessionStatus('none');
+      this.accessService.setSession('none');
       await this.router.navigate(['/auth-status'], {
         queryParams: { status: 'none' },
       });
@@ -228,27 +235,30 @@ export class AuthenticationComponent implements OnInit {
     }
 
     if (profile.status === 'pending') {
-      this.accessService.setSessionStatus('pending');
+      this.accessService.setSession('pending', profile.id);
       await this.router.navigate(['/auth-status'], {
-        queryParams: { status: 'pending' },
+        queryParams: { status: 'pending', profileId: profile.id },
       });
       return;
     }
 
     if (profile.status === 'rejected') {
-      this.accessService.setSessionStatus('rejected');
+      this.accessService.setSession('rejected', profile.id);
       await this.router.navigate(['/auth-status'], {
-        queryParams: { status: 'rejected' },
+        queryParams: { status: 'rejected', profileId: profile.id },
       });
       return;
     }
 
-    // approved
-    const status: StatusType = 'approved';
-    this.accessService.setSessionStatus(status);
-    await this.router.navigate(['/auth-status'], {
-      queryParams: { status },
-    });
+    if (profile.status === 'approved') {
+      const status: StatusType = 'approved';
+      this.accessService.setSession(status, profile.id);
+      await this.router.navigate(['/dashboard']);
+      return;
+    }
+
+    this.accessService.setSession('none');
+    await this.router.navigate(['/auth-status'], { queryParams: { status: 'none' } });
   }
 
   protected showControl(controlName: 'fullName' | 'confirmPassword' | 'facePhoto'): boolean {

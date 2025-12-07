@@ -2,23 +2,20 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AccessService } from './access.service';
 
-export const dashboardGuard: CanActivateFn = () => {
+export const pendingGuard: CanActivateFn = () => {
   const accessService = inject(AccessService);
   const router = inject(Router);
 
-  if (accessService.isSessionApproved()) {
-    return true;
-  }
-
   const status = accessService.currentStatus();
-
-  if (status) {
+  if (status === 'pending') {
     router.navigate(['/auth-status'], {
-      queryParams: { status, profileId: accessService.currentProfileId() ?? undefined },
+      queryParams: {
+        status: 'pending',
+        profileId: accessService.currentProfileId() ?? undefined,
+      },
     });
     return false;
   }
 
-  router.navigate(['/auth']);
-  return false;
+  return true;
 };

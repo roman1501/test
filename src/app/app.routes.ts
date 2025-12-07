@@ -9,6 +9,7 @@ export const routes: Routes = [
 
   {
     path: 'auth',
+    canActivate: [() => import('./pending.guard').then((m) => m.pendingGuard)],
     loadComponent: () =>
       import('./authentication/authentication.component').then((m) => m.AuthenticationComponent),
   },
@@ -21,7 +22,10 @@ export const routes: Routes = [
 
   {
     path: 'dashboard',
-    canActivate: [() => import('./dashboard.guard').then((m) => m.dashboardGuard)],
+    canActivate: [
+      () => import('./pending.guard').then((m) => m.pendingGuard),
+      () => import('./dashboard.guard').then((m) => m.dashboardGuard),
+    ],
     loadComponent: () => import('./dashboard/dashboard').then((m) => m.Dashboard),
   },
 

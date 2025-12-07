@@ -19,10 +19,10 @@
 
         <ng-container *ngSwitchCase="'approved'">
           <button type="button" class="primary" (click)="goToDashboard()">
-            Перейти до кабінету
+            Перейти в кабінет
           </button>
           <button type="button" class="secondary" (click)="goToAuth('login')">
-            Вийти / змінити акаунт
+            Вийти
           </button>
         </ng-container>
         <ng-container *ngSwitchCase="'rejected'">
@@ -30,7 +30,7 @@
             Написати адміну в Telegram
           </button>
           <button type="button" class="secondary" (click)="goToAuth('signup')">
-            Подати заявку повторно
+            Спробувати знову
           </button>
         </ng-container>
 
