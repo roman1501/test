@@ -123,14 +123,25 @@ export class AuthenticationComponent implements OnInit {
   }
 
   private getTelegramUserId(): number | null {
-    // TODO: коли підеш у Telegram WebApp — повернеш це
-    // const w = window as any;
-    // const tgUser = w?.Telegram?.WebApp?.initDataUnsafe?.user;
-    // if (!tgUser || typeof tgUser.id === 'undefined') return null;
-    // return Number(tgUser.id);
+    const w = window as any;
+    const tg = w?.Telegram?.WebApp;
 
-    return 521423479; // тест: твій id
+    // якщо скрипт Telegram WebApp не підключений / не всередині Telegram
+    if (!tg) {
+      console.warn('Telegram WebApp not detected');
+      return null;
+    }
+
+    const user = tg?.initDataUnsafe?.user;
+
+    if (!user || typeof user.id === 'undefined') {
+      console.warn('No Telegram user in initDataUnsafe');
+      return null;
+    }
+
+    return Number(user.id);
   }
+
 
   private async handleSignup(): Promise<void> {
     const telegramUserId = this.getTelegramUserId();
